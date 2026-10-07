@@ -32,6 +32,44 @@ database.exec(`
     demo INTEGER NOT NULL DEFAULT 0
   );
   CREATE INDEX IF NOT EXISTS trips_expiry ON trips(expires_at);
+  CREATE TABLE IF NOT EXISTS installations (
+    id TEXT PRIMARY KEY, token_hash TEXT NOT NULL,
+    platform TEXT NOT NULL CHECK(platform IN ('ios','android','web')),
+    discoverable INTEGER NOT NULL DEFAULT 0, push_token TEXT, push_start_token TEXT,
+    created_at INTEGER NOT NULL, seen_at INTEGER NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS contact_identifiers (
+    installation_id TEXT NOT NULL REFERENCES installations(id) ON DELETE CASCADE,
+    identifier_hash TEXT NOT NULL, kind TEXT NOT NULL CHECK(kind IN ('phone','email')),
+    PRIMARY KEY(installation_id,identifier_hash)
+  );
+  CREATE INDEX IF NOT EXISTS contact_lookup ON contact_identifiers(identifier_hash);
+  CREATE TABLE IF NOT EXISTS verification_challenges (
+    id TEXT PRIMARY KEY, installation_id TEXT NOT NULL REFERENCES installations(id) ON DELETE CASCADE,
+    identifier_hash TEXT NOT NULL, kind TEXT NOT NULL, code_hash TEXT NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS trip_recipients (
+    trip_id TEXT NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+    installation_id TEXT NOT NULL REFERENCES installations(id) ON DELETE CASCADE,
+    sender_id TEXT REFERENCES installations(id) ON DELETE SET NULL,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY(trip_id,installation_id)
+  );
+  CREATE TABLE IF NOT EXISTS widget_subscriptions (
+    trip_id TEXT NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+    installation_id TEXT NOT NULL REFERENCES installations(id) ON DELETE CASCADE,
+    activity_id TEXT NOT NULL, push_token TEXT NOT NULL,
+    last_sent_at INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY(installation_id,activity_id)
+  );
+  CREATE TABLE IF NOT EXISTS notification_outbox (
+    id TEXT PRIMARY KEY, trip_id TEXT NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+    installation_id TEXT NOT NULL REFERENCES installations(id) ON DELETE CASCADE,
+    event TEXT NOT NULL, state TEXT NOT NULL DEFAULT 'pending',
+    attempts INTEGER NOT NULL DEFAULT 0, next_attempt_at INTEGER NOT NULL, created_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS notification_pending ON notification_outbox(state,next_attempt_at);
 `);
 
 export function cached<T>(key: string): T | null {
@@ -46,4 +84,7 @@ export function cacheValue(key: string, value: unknown, ttlMs: number) {
 export function purgeExpired(now = Date.now()) {
   database.prepare("DELETE FROM trips WHERE expires_at <= ?").run(now);
   database.prepare("DELETE FROM cache WHERE expires_at <= ?").run(now);
+  database.prepare("DELETE FROM verification_challenges WHERE expires_at <= ?").run(now);
+  database.prepare("DELETE FROM installations WHERE seen_at < ?").run(now - 90 * 86400000);
+  database.prepare("DELETE FROM notification_outbox WHERE created_at < ?").run(now - 86400000);
 }

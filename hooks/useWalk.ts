@@ -181,7 +181,7 @@ export function useWalk() {
       }
       setTrip(next); setPhase("walking");
       try { await api.location(next, p); } catch (e) { setSendError(message(e)); }
-      setNotice(await shareTripLink(next.shareCode));
+      setNotice("Walk started. Choose an app contact or share the private link with someone you trust.");
     } catch (e) { setError(message(e)); } finally { setBusy(false); }
   }
   async function endTrip(status: "arrived" | "help") {

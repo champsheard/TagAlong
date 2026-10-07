@@ -5,14 +5,17 @@ contact follow one private trip in a phone browser. The same Expo Router /
 React Native TypeScript screens run on web, iOS, and Android. Express and
 better-sqlite3 provide routing, lighting estimates, and time-limited trip storage.
 
-No accounts, names, email addresses, phone numbers, ads, or analytics are collected.
+Walk planning and link tracking need no account. Optional app contacts use verified
+phone/email ownership and device enrollment. Contact names stay on-device; the
+server stores keyed matching hashes, not the address book. Your own identifier is
+processed transiently by the server and verification provider. No ads or analytics.
 **This is not an emergency service or a safety guarantee. Call 911 when needed.**
 
 ## Requirements
 
 - Node.js 22.13 or newer (the workspace uses Node 22)
 - npm
-- Expo Go matching Expo SDK 57 for native testing
+- Expo Go matching Expo SDK 57 for core walking; native builds for push/widgets
 - An OpenRouteService API key for real walking routes. Key-free Demo walk works now.
 
 ## Run in Replit
@@ -58,8 +61,11 @@ and reload the browser to refresh the routing-availability notice.
 | `APP_USER_AGENT` | Optional identifiable User-Agent for Nominatim (recommended to include your app URL/contact). |
 | `NOMINATIM_URL` | Optional geocoding provider base URL; lets you switch to a self-hosted/compatible service without updating the app. |
 
-No session secret is needed: access is by private trip link plus a separate device
-write token. The server stores only a hash of the write token.
+Core trips need no session secret: access is by a private trip link plus a separate
+device write token. Optional contact matching requires a stable server-only
+`SESSION_SECRET` for keyed identifier hashing. Enrollment tokens and trip write
+tokens are hashed in the database. Rotating this secret invalidates the existing
+matching index; arrange re-verification rather than silently losing matches.
 
 ## iOS / Android with Expo Go
 
@@ -75,11 +81,14 @@ Native maps use react-native-maps `UrlTile` with OpenStreetMap tiles; web uses
 React Leaflet. SDK-matched Reanimated/Worklets versions are pinned because newer
 peer versions do not match the Expo Go native runtime.
 
+See [contacts and widgets setup](docs/contacts-and-widgets.md) for optional verified
+matching, provider connections, native builds, notification permissions and APNs.
+
 ## Try the complete flow without a routing key
 
 1. Tap **Take a Demo walk instead**.
 2. Compare the explicitly simulated routes and lighting scores; choose one.
-3. Review consent and tap **Start walk and share link**.
+3. Review consent and start the walk. Choose **Share link** or **Contacts**.
 4. Open the private link in another browser/tab, or on another phone.
 5. The demo dot moves along the selected route over 90 seconds, updating every
    five seconds. Mark arrival or confirm **Need help** to see the tracking status
@@ -126,8 +135,9 @@ lit or only one route is available.
   browser storage; never share them. A reload can resume an unexpired trip.
 - Anyone holding the link can read the trip. Send it only to a trusted contact.
 - Arrival stops updates. **Need help also stops updates**, freezes the last-known
-  location, and marks the contact's tracking page red. It sends no SMS, push
-  notification, or emergency call; the contact must view the link.
+  location, and marks the contact's tracking page red. Selected app recipients
+  receive a queued status notification when available. Link-only recipients must
+  view the link. No emergency call or SMS help alert is made; delivery is not guaranteed.
 - If ending fails offline, this device stops sharing immediately and retries only
   the end command. Keep the screen open until it sends.
 - Links expire six hours after start, or four hours after arrival/help. Expired
@@ -166,8 +176,8 @@ validation, lighting normalization/fallback, and geocoding throttle/cache. Live
 provider verification needs a valid ORS key. Native bundling is not a substitute
 for checking GPS, sharing, and maps on actual iOS/Android devices.
 
-With development workflows running and Chromium on PATH, `node scripts/browser-smoke.cjs`
-checks the demo trip/contact flow at 390 px width and writes screenshots to
-`/tmp/safe-walk-browser`. It creates its own temporary demo trips in the development
-database. Set `CHROMIUM_BIN` if needed. `TEST_SEARCH_ONLY=1` or `TEST_CLEANUP_ONLY=1`
-runs just the corresponding focused check.
+With development workflows running and Chromium on PATH,
+`node scripts/contacts-browser-smoke.cjs` checks the map-first demo walk, explicit
+sharing choice, optional enrollment/removal, provider-unavailable states and
+tracking/arrival at 390 px width. It writes screenshots to `/tmp/safe-walk-browser`
+and creates only its own temporary demo trips/enrollment. Set `CHROMIUM_BIN` if needed.

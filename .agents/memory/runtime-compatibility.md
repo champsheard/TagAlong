@@ -29,3 +29,25 @@ attempted to watch it and crashed with ENOENT.
 
 **How to apply:** Include the env-file argument only when that file exists;
 hosting-supplied environment variables should still work without a local file.
+
+Check runtime imports, not only types, when adding Expo SDK 57 contact/widget APIs.
+
+**Why:** The root contacts package exports legacy functions that type-check but
+throw at runtime; supported legacy methods must come from the explicit legacy
+entry point. Native-only widget libraries also require their native module at
+import time and are absent from Expo Go.
+
+**How to apply:** Use the current contacts model or explicit legacy entry point.
+Guard native widget module loading before importing it, not only before calling
+an exported function. Android widget task registration must still happen during
+real native headless entry-point loading, before any React screen mounts.
+
+Return from contact settings to the existing walk, not a second map route.
+
+**Why:** Stack navigation can retain the first walking screen while a pushed
+map mounts another. Both can own location-sending effects for the same trip;
+browser automation can also accidentally click hidden controls from that stack.
+
+**How to apply:** Use back navigation with replacement only for a direct-entry
+fallback. Verify there is only one walking screen after round trips through
+settings, and filter browser test controls by actual visibility.

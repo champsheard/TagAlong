@@ -8,6 +8,7 @@ import { demoRoutes, walkingRoutes } from "./routes";
 import { createTrip, endTrip, trackTrip, updateLocation } from "./trips";
 import { HttpError } from "./errors";
 import { rateLimit } from "./rateLimit";
+import { contactsConfig, contactsRouter } from "./contactsRouter";
 
 export const app = express();
 
@@ -33,7 +34,8 @@ app.get("/api/health", (_request, response) => {
   });
 });
 
-app.get("/api/config", (_request, response) => response.json({ routingAvailable: !!process.env.ORS_API_KEY, demoAvailable: true, locationIntervalSeconds: 5 }));
+app.get("/api/config", async (_request, response) => response.json({ routingAvailable: !!process.env.ORS_API_KEY, demoAvailable: true, locationIntervalSeconds: 5, ...await contactsConfig() }));
+app.use("/api", contactsRouter);
 app.get("/api/geocode", async (request, response) => {
   response.json(await geocode(typeof request.query.q === "string" ? request.query.q : ""));
 });

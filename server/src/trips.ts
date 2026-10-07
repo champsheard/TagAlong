@@ -3,6 +3,7 @@ import type { Geometry, Position, TrackingData, TripStatus } from "../../shared/
 import { database } from "./db";
 import { HttpError } from "./errors";
 import { validPoint, validateGeometry } from "./validation";
+import { scheduleTripUpdate } from "./notifications";
 
 type TripRow = {
   id: string; share_code: string; token_hash: string; route: string;
@@ -20,7 +21,7 @@ export function createTrip(body: { routeGeometry?: Geometry; etaSeconds?: number
     .run(tripId, shareCode, digest(writeToken), JSON.stringify(body.routeGeometry), now, etaAt, expiresAt, body.demo ? 1 : 0);
   return { tripId, shareCode, writeToken, etaAt, expiresAt };
 }
-function writable(id: string, token: string | undefined): TripRow {
+export function writable(id: string, token: string | undefined): TripRow {
   if (!token || token.length > 200) throw new HttpError(401, "A private write token is required.");
   const row = database.prepare("SELECT * FROM trips WHERE id = ? AND expires_at > ?").get(id, Date.now()) as TripRow | undefined;
   // Avoid revealing whether an ID exists to unauthorized requests.
@@ -39,6 +40,7 @@ export function updateLocation(id: string, token: string | undefined, body: Posi
   const location: Position = { lat: body.lat, lng: body.lng, accuracy: body.accuracy, timestamp: body.timestamp };
   database.prepare("UPDATE trips SET last_location = ?, last_update_at = ? WHERE id = ? AND status = 'active'")
     .run(JSON.stringify(location), Date.now(), id);
+  scheduleTripUpdate(id, "refresh");
   return { ok: true };
 }
 export function endTrip(id: string, token: string | undefined, status: TripStatus) {
@@ -51,6 +53,7 @@ export function endTrip(id: string, token: string | undefined, status: TripStatu
   const now = Date.now();
   database.prepare("UPDATE trips SET status = ?, ended_at = ?, expires_at = ? WHERE id = ?")
     .run(status, now, now + 14400000, id);
+  scheduleTripUpdate(id, status);
   return { ok: true };
 }
 export function trackTrip(code: string): TrackingData {

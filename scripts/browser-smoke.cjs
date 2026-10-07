@@ -43,7 +43,7 @@ class CDP {
   }
   async click(text) {
     const clicked = await this.eval(`(() => {
-      const element = Array.from(document.querySelectorAll('[role="button"]')).find(e=>e.textContent.trim()===${JSON.stringify(text)});
+      const element = Array.from(document.querySelectorAll('[role="button"]')).find(e=>e.textContent.trim()===${JSON.stringify(text)} && e.getBoundingClientRect().width > 0 && e.getBoundingClientRect().height > 0);
       if (!element) return false;
       element.scrollIntoView({block:"center"}); element.click(); return true;
     })()`);
@@ -177,4 +177,5 @@ async function main() {
     await fs.rm(profile, { recursive: true, force: true }).catch(() => {});
   }
 }
-main().catch(e => { console.error(e.message); process.exitCode = 1; });
+module.exports = { CDP, page, sleep, origin, port, evidence };
+if (require.main === module) main().catch(e => { console.error(e.message); process.exitCode = 1; });

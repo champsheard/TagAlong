@@ -1,5 +1,6 @@
 import { Platform, Share } from "react-native";
 import type { Geometry, Place, Point, Position, RouteResult, TrackingData, TripCredentials } from "../shared/types";
+import type { ContactMatch, ContactsConfig, IdentifierKind, InstallationProfile, InstallationSession, ReceivedTrip } from "../shared/contacts";
 
 const configured = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, "");
 // Web is served with /api on the same origin, including the development proxy.
@@ -7,12 +8,12 @@ const base = Platform.OS === "web" ? "" : configured;
 export class ApiError extends Error {
   constructor(message: string, public status: number, public code?: string) { super(message); }
 }
-async function request<T>(path: string, method = "GET", body?: unknown, token?: string): Promise<T> {
+async function request<T>(path: string, method = "GET", body?: unknown, token?: string, extraHeaders?: Record<string, string>): Promise<T> {
   if (Platform.OS !== "web" && !base) throw new ApiError("Set EXPO_PUBLIC_API_URL to your API's HTTPS origin to use the native app.", 0);
   let response: Response;
   try {
     response = await fetch(`${base ?? ""}/api${path}`, {
-      method, headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      method, headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...extraHeaders },
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(50000),
     });
@@ -24,7 +25,7 @@ async function request<T>(path: string, method = "GET", body?: unknown, token?: 
   return result as T;
 }
 export const api = {
-  config: () => request<{ routingAvailable: boolean }>("/config"),
+  config: () => request<ContactsConfig & { routingAvailable: boolean }>("/config"),
   geocode: (query: string) => request<Place[]>(`/geocode?q=${encodeURIComponent(query)}`),
   routes: (from: Point, to: Point) => request<RouteResult>("/routes", "POST", { from, to }),
   demo: () => request<RouteResult & { from: Place; to: Place }>("/demo"),
@@ -35,6 +36,23 @@ export const api = {
   end: (trip: TripCredentials, status: "arrived" | "help") =>
     request<{ ok: boolean }>(`/trips/${trip.tripId}/end`, "POST", { status }, trip.writeToken),
   track: (code: string) => request<TrackingData>(`/track/${encodeURIComponent(code)}`),
+  enroll: (platform: string) => request<InstallationSession>("/installations", "POST", { platform }),
+  profile: (s: InstallationSession) => request<InstallationProfile>("/installations/me", "GET", undefined, s.authToken),
+  verify: (s: InstallationSession, kind: IdentifierKind, identifier: string, country: string) =>
+    request<{ challengeId: string; expiresAt: number }>("/installations/verify", "POST", { kind, identifier, country }, s.authToken),
+  confirm: (s: InstallationSession, challengeId: string, code: string) =>
+    request<InstallationProfile>("/installations/confirm", "POST", { challengeId, code }, s.authToken),
+  discover: (s: InstallationSession, hashes: string[]) => request<{ matches: ContactMatch[] }>("/contacts/discover", "POST", { hashes }, s.authToken),
+  updateProfile: (s: InstallationSession, body: { pushToken?: string | null; pushStartToken?: string | null; discoverable?: boolean }) =>
+    request<InstallationProfile>("/installations/me", "PATCH", body, s.authToken),
+  forget: (s: InstallationSession) => request<{ ok: boolean }>("/installations/me", "DELETE", undefined, s.authToken),
+  inbox: (s: InstallationSession) => request<{ trips: ReceivedTrip[] }>("/inbox", "GET", undefined, s.authToken),
+  shareToContact: (s: InstallationSession, trip: TripCredentials, installationIds: string[]) =>
+    request<{ sharedCount: number; notificationsQueued: number }>(`/trips/${trip.tripId}/share`, "POST", { installationIds }, s.authToken, { "X-Trip-Token": trip.writeToken }),
+  widget: (s: InstallationSession, code: string, activityId: string, pushToken: string) =>
+    request<{ ok: boolean; remoteUpdatesAvailable: boolean }>(`/track/${encodeURIComponent(code)}/widget`, "POST", { activityId, pushToken }, s.authToken),
+  removeWidget: (s: InstallationSession, code: string, activityId: string) =>
+    request<{ ok: boolean }>(`/track/${encodeURIComponent(code)}/widget`, "DELETE", { activityId }, s.authToken),
 };
 export function tripLink(code: string) {
   const origin = Platform.OS === "web" ? window.location.origin : configured;
