@@ -59,3 +59,6 @@ externalPort = 8081
 
 [userenv.development]
 EXPO_PUBLIC_API_URL = "https://0396a918-f035-4d19-81da-fa013554d0c7-00-399qp7giai5fw.worf.replit.dev"
+
+[userenv.shared]
+VERIFICATION_EMAIL_FROM = "no-reply@updates.zymono.com"

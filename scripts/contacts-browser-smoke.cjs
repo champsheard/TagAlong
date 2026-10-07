@@ -31,9 +31,19 @@ async function main() {
     await walker.wait("A trusted person, one tap away.");
     await walker.wait("Share a link with anyone");
     await walker.wait("Enable optional app contacts"); await walker.click("Enable optional app contacts"); await walker.wait("Send verification code");
-    await walker.wait("Email verification isn't configured yet.");
-    await walker.click("Phone"); await walker.wait("Phone verification isn't configured yet.");
-    await walker.screenshot("contacts-provider-unavailable");
+    const configuration = await (await fetch(`${origin}/api/config`)).json();
+    for (const kind of ["email", "phone"]) {
+      if (kind === "phone") await walker.click("Phone");
+      const available = kind === "email" ? configuration.emailVerificationAvailable : configuration.smsVerificationAvailable;
+      if (!available) await walker.wait(`${kind === "email" ? "Email" : "Phone"} verification isn't configured yet.`);
+      await walker.eval(`document.querySelector(${JSON.stringify(`[aria-label="${kind === "email" ? "Your email address" : "Your phone number"}"]`)}).focus()`);
+      await walker.call("Input.insertText", { text: kind === "email" ? "test@example.com" : "+14155550123" });
+      await sleep(150);
+      const disabled = await walker.eval(`Array.from(document.querySelectorAll('[role="button"]')).find(e=>e.textContent.trim()==="Send verification code").getAttribute("aria-disabled")==="true"`);
+      assert.equal(disabled, !available, `${kind} verification button does not match provider availability`);
+      // Never send a verification code from this automated browser check.
+    }
+    await walker.screenshot("contacts-provider-availability");
     await walker.click("Remove contact enrollment"); await walker.wait("Remove this device?");
     await walker.click("Keep enrollment"); await sleep(250);
     assert.ok(await walker.eval(`!!localStorage.getItem('safe-walk-installation')`));
@@ -49,7 +59,7 @@ async function main() {
     await walker.click("I’ve arrived"); await walker.wait("You made it.");
     await tracker.wait("Your contact has arrived.", 12000);
     assert.deepEqual(walker.errors, []); assert.deepEqual(tracker.errors, []);
-    console.log("PASS: phone-width map-first walk, explicit sharing choice, contact enrollment, unavailable-provider notices, cancel/delete enrollment, tracking map, arrival and no uncaught browser errors.");
+    console.log("PASS: phone-width map-first walk, explicit sharing choice, contact enrollment, provider availability and verification button states (no messages sent), cancel/delete enrollment, tracking map, arrival and no uncaught browser errors.");
   } finally {
     walker?.ws.close(); tracker?.ws.close(); root?.ws.close(); browser.kill("SIGTERM");
     await fs.rm(profile, { recursive: true, force: true }).catch(() => {});
