@@ -1,0 +1,58 @@
+Build "Safe Walk", a cross-platform app that plans walking routes favoring well-lit streets and lets one trusted contact follow the trip live through a link. It must run on web, iOS, and Android from one codebase.
+
+TECH STACK (required)
+- Backend: Node.js with Express in /server, using TypeScript. Use SQLite (better-sqlite3) for storage. Listen on process.env.PORT, host 0.0.0.0, with CORS enabled.
+- Frontend: Expo (React Native) with TypeScript and Expo Router in /app. It must work on web, iOS, and Android (via Expo Go). Use only React Native components for UI so one set of screens runs on all three platforms.
+- Maps, using platform-specific files that share one props interface (center, routes as colored polylines, markers, live position marker):
+  - MapView.native.tsx: react-native-maps with OpenStreetMap tiles through UrlTile (no API key).
+  - MapView.web.tsx: react-leaflet with OpenStreetMap tiles.
+- Location: expo-location (works on web and native).
+- Sharing the trip link: React Native Share API on native; on web use navigator.share if available, otherwise copy to clipboard.
+- Config: the app reads EXPO_PUBLIC_API_URL. Server secrets (ORS_API_KEY) live in Replit Secrets and are never sent to the client.
+- In production, the Express server also serves the Expo web build (expo export --platform web) so the contact's tracking link works in any phone browser with nothing to install.
+
+CORE FLOW
+1. The walker picks a start (default: current location) and a destination using address search.
+2. The app shows two route options: "Fastest" and "Best lit". Each card shows duration, extra minutes versus fastest, a lighting score from 0 to 100, and a one-line reason (for example "14 streetlights per 100 m").
+3. The walker reviews a consent screen: "Your trusted contact can see your live location until you end the trip."
+4. The walker taps Start. The app creates a trip and a private share link, then opens the native share sheet to send the link to one contact.
+5. During the trip, the app sends the walker's position to the server every 5 seconds. The screen shows the map, live dot, ETA, a "Sharing is on" indicator, and two buttons: "I've arrived" and "Need help".
+6. The contact opens the link at /track/[code] (a public, mobile-friendly web page). It shows the map, the walker's live dot, ETA, a status banner, and "Last updated X seconds ago". It polls every 5 seconds. The banner turns amber if there has been no update for 2 minutes, and red if the walker tapped "Need help" (showing the last known location).
+7. "I've arrived" ends the trip and stops location sharing. "Need help" marks the trip as help status. The app also shows a note that it does not replace calling 911.
+
+BACKEND API (all under /api)
+- GET /geocode?q= : proxy to Nominatim with a proper User-Agent, 1 request per second, and caching.
+- POST /routes {from, to}: fetch up to 3 walking route alternatives from OpenRouteService (foot-walking profile, alternative_routes), score each one, and return id, geometry, distanceMeters, durationSeconds, lightScore, lightBreakdown, label.
+- POST /trips {routeGeometry, etaSeconds}: returns tripId, shareCode (random, at least 22 chars, base64url) and writeToken (only the walker's device holds it).
+- POST /trips/:id/location (requires writeToken): lat, lng, accuracy, timestamp.
+- POST /trips/:id/end (requires writeToken): status is "arrived" or "help".
+- GET /track/:shareCode: returns status, lastLocation, lastUpdateAt, route, etaAt. Returns 404 if the trip has expired.
+- Trips expire 4 hours after ending, or 6 hours after starting if never ended. Run an hourly purge job. Add basic rate limiting.
+
+LIGHTING SCORE (server/src/lighting.ts)
+- Query the Overpass API for the route's bounding box plus a buffer: highway=street_lamp nodes, ways tagged lit=yes, and open shops, amenities, and bus stops. Cache results per area for 24 hours.
+- Compute L (lamps within 25 m of the route per 100 m, normalized to 0-1), A (nearby activity within 30 m, normalized to 0-1), and U (share of route length on ways tagged lit=yes).
+- Score = 100 * (0.6*L + 0.3*A + 0.1*U). Put the weights and normalization caps in a config file so they are easy to tune.
+- If lamp data is sparse, fall back gracefully to U and A, and show "limited lighting data for this area" in the UI.
+- Label the score as an estimate in the UI.
+
+PRIVACY AND SAFETY RULES
+- No user accounts and no collection of names, emails, or phone numbers.
+- Location sharing only runs while a trip is active, and stops on arrival or expiry.
+- Never log precise coordinates to server logs.
+- No ads, analytics, or third-party trackers.
+
+DEMO MODE
+Add a "Demo walk" toggle that simulates a walker moving along the chosen route, so I can record the live-tracking flow in a video without walking outside.
+
+DELIVER IN MILESTONES (stop after each so I can test it)
+1. Scaffold /server and /app, a health-check endpoint, and the Expo app running on web.
+2. Map, address search, and route display on web, iOS, and Android.
+3. Lighting score and the route comparison screen.
+4. Trips, live location updates, and the contact tracking page.
+5. Demo mode, error and loading states (denied location permission, no network, no routes found), and a README with setup steps and environment variables.
+
+STRETCH (only after the MVP works): check-in timer that alerts if the walker hasn't arrived by ETA + 10 minutes, a "report a dark spot" button, and saved places.
+
+QUALITY NOTES
+Keep dependencies minimal. Comment the lighting-score code clearly, since I will need to explain it. Make the UI large-text and high-contrast, and test every screen at phone width.

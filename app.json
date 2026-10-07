@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "Safe Walk",
+    "slug": "safe-walk",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "safewalk",
+    "userInterfaceStyle": "automatic",
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
