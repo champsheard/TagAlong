@@ -6,6 +6,11 @@
   "include": [
     "app/**/*.ts",
     "app/**/*.tsx",
+    "components/**/*.ts",
+    "components/**/*.tsx",
+    "hooks/**/*.ts",
+    "lib/**/*.ts",
+    "shared/**/*.ts",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
   ],

@@ -50,3 +50,12 @@ externalPort = 3001
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[[ports]]
+localPort = 8081
+externalPort = 8081
+
+[userenv]
+
+[userenv.development]
+EXPO_PUBLIC_API_URL = "https://0396a918-f035-4d19-81da-fa013554d0c7-00-399qp7giai5fw.worf.replit.dev"

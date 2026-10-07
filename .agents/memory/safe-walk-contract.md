@@ -14,3 +14,13 @@ Safe Walk must have no user accounts, no collection of names, emails, or phone n
 **Why:** These are explicit product privacy and safety rules in the user's build brief, not optional implementation preferences.
 
 **How to apply:** Preserve these boundaries when adding maps, trips, tracking, storage, logging, or external services. Do not add authentication or analytics as incidental improvements.
+
+For the MVP, “Need help” ends sharing, freezes the last-known position, and changes
+the contact's tracking page to help status. It does not send a notification.
+
+**Why:** The brief asks for a red status banner showing last-known location, not
+SMS/push/emergency calls. Claiming a contact was “notified” would imply delivery
+that the product does not provide.
+
+**How to apply:** Explain that the contact sees the status when viewing the link;
+keep the emergency-call disclaimer. Outbound alerts would require explicit new scope.

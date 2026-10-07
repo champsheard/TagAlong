@@ -1,0 +1,31 @@
+---
+name: Safe Walk runtime compatibility
+description: Non-obvious Expo Go peer compatibility, Expo single-output proxy behavior, and Node watch-mode env-file constraints.
+---
+
+Match native peer libraries to Expo Go's bundled versions; do not trust the
+latest versions automatically installed to satisfy optional peers.
+
+**Why:** Expo SDK 57's router installation selected newer Reanimated/Worklets
+peers than the Expo native modules supported. Checking direct Expo dependencies
+alone did not reveal that mismatch.
+
+**How to apply:** Inspect Expo's bundled native-module recommendations when
+changing SDK or native dependencies, and pin compatible peers.
+
+Keep API forwarding ahead of Expo's single-output SPA fallback.
+
+**Why:** In this SDK 57 environment, the Metro enhanceMiddleware approach
+returned HTML for /api requests despite valid backend endpoints. A front
+HTTP/WebSocket development proxy makes the request ordering explicit.
+
+**How to apply:** Verify /api returns JSON through the public web origin after
+changing development tooling; a healthy backend port alone is insufficient.
+
+Do not pass a missing optional env file to Node 22 watch mode.
+
+**Why:** --env-file-if-exists accepted the missing file, but watch mode still
+attempted to watch it and crashed with ENOENT.
+
+**How to apply:** Include the env-file argument only when that file exists;
+hosting-supplied environment variables should still work without a local file.
