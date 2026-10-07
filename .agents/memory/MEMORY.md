@@ -1,0 +1,1 @@
+- [Safe Walk delivery and privacy](safe-walk-contract.md) — stop after each milestone for user testing; preserve the account-free, time-limited sharing contract.

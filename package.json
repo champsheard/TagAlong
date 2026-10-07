@@ -4,7 +4,7 @@
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
-    "dev:web": "BROWSER=none expo start --web --port 5000 --host lan",
+    "dev:web": "BROWSER=none EXPO_UNSTABLE_HEADLESS=1 EXPO_NO_TELEMETRY=1 expo start --web --port 5000 --host lan",
     "dev:server": "tsx watch server/src/index.ts",
     "start:server": "tsx server/src/index.ts",
     "export:web": "expo export --platform web",
