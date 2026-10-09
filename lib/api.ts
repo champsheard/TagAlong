@@ -11,14 +11,24 @@ export class ApiError extends Error {
 async function request<T>(path: string, method = "GET", body?: unknown, token?: string, extraHeaders?: Record<string, string>): Promise<T> {
   if (Platform.OS !== "web" && !base) throw new ApiError("Set EXPO_PUBLIC_API_URL to your API's HTTPS origin to use the native app.", 0);
   let response: Response;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 50000);
   try {
     response = await fetch(`${base ?? ""}/api${path}`, {
       method, headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...extraHeaders },
       body: body === undefined ? undefined : JSON.stringify(body),
-      signal: AbortSignal.timeout(50000),
+      signal: controller.signal,
     });
-  } catch {
+  } catch (error) {
+    if (Platform.OS !== "web" && __DEV__) {
+      const detail = error instanceof Error && /network request failed/i.test(error.message)
+        ? "The phone could not resolve or connect to the HTTPS API host."
+        : "The phone's HTTPS request failed before the API responded.";
+      throw new ApiError(`Couldn't reach Safe Walk. ${detail}`, 0);
+    }
     throw new ApiError("Couldn't reach Safe Walk. Check your connection and try again.", 0);
+  } finally {
+    clearTimeout(timeout);
   }
   const result = await response.json();
   if (!response.ok) throw new ApiError(result.error ?? "Something went wrong. Please try again.", response.status, result.code);
