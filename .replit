@@ -19,6 +19,10 @@ args = "Safe Walk Web"
 task = "workflow.run"
 args = "Safe Walk API"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Expo Go"
+
 [[workflows.workflow]]
 name = "Safe Walk Web"
 author = "agent"
@@ -43,6 +47,18 @@ waitForPort = 3001
 [workflows.workflow.metadata]
 outputType = "console"
 
+[[workflows.workflow]]
+name = "Expo Go"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "EXPO_PUBLIC_API_URL=\"https://$REPLIT_DEV_DOMAIN\" npm run dev:expo"
+waitForPort = 8080
+
+[workflows.workflow.metadata]
+outputType = "console"
+
 [[ports]]
 localPort = 3001
 externalPort = 3001
@@ -52,8 +68,16 @@ localPort = 5000
 externalPort = 80
 
 [[ports]]
+localPort = 8080
+externalPort = 8080
+
+[[ports]]
 localPort = 8081
 externalPort = 8081
+
+[[ports]]
+localPort = 8082
+externalPort = 3000
 
 [userenv]
 
