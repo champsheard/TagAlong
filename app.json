@@ -21,7 +21,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Safe Walk uses your location only while a walking trip is active."
+          "locationWhenInUsePermission": "Safe Walk uses your location to center the map and find nearby places. It shares live location only while a walking trip is active."
         }
       ],
       "expo-secure-store",

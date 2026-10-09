@@ -40,3 +40,14 @@ a change to the foreground-only walking contract.
 
 **How to apply:** Keep the foreground requirement clear even when recipient
 widgets support background status updates.
+
+Before a walk, foreground location may center the map. An explicit nearby-place
+search may send the position to Safe Walk for in-memory result ranking; pass only
+a rounded neighborhood area to the public geocoder, and never log or persist the
+exact point. Contact location sharing still begins only with an active walk.
+
+**Why:** Nearby search needs a useful starting point without broadening the
+existing trip-sharing or public-geocoder privacy contract.
+
+**How to apply:** Request foreground permission for map focus, send location only
+on a deliberate search, and keep the exact position out of caches and logs.

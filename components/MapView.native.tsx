@@ -23,6 +23,6 @@ export default function MapView({ center, routes, markers, livePosition, fitPadd
     <UrlTile urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} />
     {routes?.map(r => <Polyline key={r.id} coordinates={r.geometry.coordinates.map(([longitude, latitude]) => ({ latitude, longitude }))} strokeColor={r.color} strokeWidth={5} />)}
     {markers?.map((p, i) => <Marker key={i} coordinate={{ latitude: p.lat, longitude: p.lng }} title={p.label} pinColor="#193c32" />)}
-    {livePosition && <Marker coordinate={{ latitude: livePosition.lat, longitude: livePosition.lng }} title="Live location" pinColor="#236ce1" />}
+     {livePosition && <Marker coordinate={{ latitude: livePosition.lat, longitude: livePosition.lng }} title="Your current location" pinColor="#236ce1" />}
   </NativeMap><Pressable accessibilityRole="link" accessibilityLabel="OpenStreetMap attribution" onPress={() => Linking.openURL("https://www.openstreetmap.org/copyright")} style={{ position: "absolute", right: 6, bottom: (attributionBottom ?? 4) + 3, backgroundColor: "#fbfaf5ee", paddingHorizontal: 7, paddingVertical: 4, borderRadius: 7 }}><Text style={{ fontSize: 10, color: "#193c32", fontWeight: "700" }}>© OpenStreetMap</Text></Pressable></View>;
 }

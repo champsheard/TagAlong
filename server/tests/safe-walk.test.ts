@@ -144,3 +144,25 @@ test("Nominatim requests are globally throttled and cached", async () => {
   assert.equal(requests, 2);
   globalThis.fetch = realFetch;
 });
+test("nearby searches bias Nominatim to the neighborhood and return the closest result first", async () => {
+  let providerRequest = "";
+  globalThis.fetch = (async input => {
+    providerRequest = String(input);
+    return Response.json([
+      { lat: "40.7500", lon: "-73.9800", display_name: "Farther fixture" },
+      { lat: "40.7350", lon: "-73.9820", display_name: "Nearest fixture" },
+    ]);
+  }) as typeof fetch;
+  try {
+    const result = await call("/geocode", { q: "Nearby fixture search", near: { lat: 40.7341, lng: -73.9821 } });
+    assert.equal(result.status, 200);
+    assert.deepEqual(result.data.map((place: { label: string }) => place.label), ["Nearest fixture", "Farther fixture"]);
+    const search = new URL(providerRequest).searchParams;
+    assert.equal(search.get("limit"), "15");
+    assert.ok(search.has("viewbox"));
+    assert.ok(!providerRequest.includes("40.7341"));
+    assert.ok(!providerRequest.includes("-73.9821"));
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});

@@ -20,6 +20,13 @@ async function currentPosition(): Promise<Position> {
   ]);
   return { lat: location.coords.latitude, lng: location.coords.longitude, accuracy: location.coords.accuracy, timestamp: location.timestamp };
 }
+async function mapPosition(): Promise<Position | null> {
+  const permission = await Location.requestForegroundPermissionsAsync();
+  if (permission.status !== "granted") return null;
+  const recent = await Location.getLastKnownPositionAsync({ maxAge: 20000, requiredAccuracy: 150 });
+  const location = recent ?? await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+  return { lat: location.coords.latitude, lng: location.coords.longitude, accuracy: location.coords.accuracy, timestamp: location.timestamp };
+}
 export function useWalk() {
   const [phase, setPhase] = useState<Phase>("plan");
   const [from, setFrom] = useState<Place | null>(null), [to, setTo] = useState<Place | null>(null);
@@ -27,6 +34,7 @@ export function useWalk() {
   const [result, setResult] = useState<RouteResult | null>(null), [selectedId, setSelectedId] = useState("");
   const [trip, setTrip] = useState<ActiveTrip | null>(null);
   const [position, setPosition] = useState<Position | null>(null);
+  const [mapLocation, setMapLocation] = useState<Position | null>(null);
   const [busy, setBusy] = useState(false), [restoring, setRestoring] = useState(true);
   const [error, setError] = useState(""), [notice, setNotice] = useState(""), [sendError, setSendError] = useState("");
   const [routingAvailable, setRoutingAvailable] = useState<boolean | null>(null);
@@ -63,6 +71,11 @@ export function useWalk() {
         else if (mounted) setError(`Couldn't resume your trip: ${message(e)} Reload when connected; sharing is paused.`);
       } finally { if (mounted) setRestoring(false); }
     })();
+    return () => { mounted = false; };
+  }, []);
+  useEffect(() => {
+    let mounted = true;
+    mapPosition().then(p => { if (mounted && p) setMapLocation(p); }).catch(() => {});
     return () => { mounted = false; };
   }, []);
   useEffect(() => {
@@ -143,7 +156,7 @@ export function useWalk() {
   }, [trip]);
   async function locateStart() {
     setBusy(true); setError("");
-    try { const p = await currentPosition(); setFrom({ ...p, label: "Current location" }); setPosition(p); latest.current = p; }
+    try { const p = await currentPosition(); setMapLocation(p); setFrom({ ...p, label: "Current location" }); setPosition(p); latest.current = p; }
     catch (e) { setError(message(e)); } finally { setBusy(false); }
   }
   async function loadDemo() {
@@ -159,7 +172,7 @@ export function useWalk() {
     setBusy(true); setError(""); setNotice("");
     try {
       let start = from;
-      if (!start) { const p = await currentPosition(); latest.current = p; setPosition(p); start = { ...p, label: "Current location" }; setFrom(start); }
+      if (!start) { const p = await currentPosition(); setMapLocation(p); latest.current = p; setPosition(p); start = { ...p, label: "Current location" }; setFrom(start); }
       const data = await api.routes(start, to);
       if (!data.routes.length) throw new Error("No walking routes found. Try a nearby destination.");
       setResult(data); setSelectedId(data.routes.find(r => r.label === "Best lit")?.id ?? data.routes[0].id); setPhase("routes");
@@ -170,6 +183,7 @@ export function useWalk() {
     setBusy(true); setError(""); setSendError(""); stopping.current = false;
     try {
       const p = demo ? { ...asPoint(selectedRoute.geometry.coordinates[0]), accuracy: 5, timestamp: Date.now() } : await currentPosition();
+      if (!demo) setMapLocation(p);
       latest.current = p; setPosition(p);
       const created = await api.createTrip(selectedRoute.geometry, demo ? 90 : selectedRoute.durationSeconds, demo);
       const next: ActiveTrip = { ...created, demo, routeLabel: selectedRoute.label, route: selectedRoute };
@@ -202,6 +216,7 @@ export function useWalk() {
   }
   return {
     phase, from, to, setFrom, setTo, demo, setDemo, result, selectedRoute, foreground,
+    mapLocation,
     selectRoute: setSelectedId, trip, position, busy, restoring, error, notice, sendError, now, routingAvailable, finishedStatus,
     locateStart, loadDemo, planRoutes, startTrip, endTrip, shareTrip, reset,
     reviewConsent: () => setPhase("consent"), backToRoutes: () => setPhase("routes"),

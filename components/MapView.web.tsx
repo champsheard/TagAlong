@@ -28,7 +28,7 @@ export default function MapView(props: MapViewProps) {
     <Fit {...props} />
     {props.routes?.map(r => <Polyline key={r.id} positions={r.geometry.coordinates.map(([lng, lat]) => [lat, lng])} pathOptions={{ color: r.color, weight: 5, opacity: 0.9 }} />)}
     {props.markers?.map((p, i) => <CircleMarker key={i} center={[p.lat, p.lng]} radius={7} pathOptions={{ color: "#193c32", fillColor: "#f2f0e8", fillOpacity: 1 }}><Tooltip>{p.label}</Tooltip></CircleMarker>)}
-    {props.livePosition && <CircleMarker center={[props.livePosition.lat, props.livePosition.lng]} radius={9} pathOptions={{ color: "#fff", weight: 3, fillColor: "#236ce1", fillOpacity: 1 }}><Tooltip>Your walker's location</Tooltip></CircleMarker>}
+    {props.livePosition && <CircleMarker center={[props.livePosition.lat, props.livePosition.lng]} radius={9} pathOptions={{ color: "#fff", weight: 3, fillColor: "#236ce1", fillOpacity: 1 }}><Tooltip>Your current location</Tooltip></CircleMarker>}
     </MapContainer>
     <Pressable accessibilityRole="link" accessibilityLabel="OpenStreetMap attribution" onPress={() => Linking.openURL("https://www.openstreetmap.org/copyright")}
       style={{ position: "absolute", right: 6, bottom: (props.attributionBottom ?? 4) + 3, backgroundColor: "rgba(251,250,245,0.94)", paddingHorizontal: 7, paddingVertical: 4, borderRadius: 7 }}>

@@ -9,12 +9,6 @@ export class ApiError extends Error {
   constructor(message: string, public status: number, public code?: string) { super(message); }
 }
 async function request<T>(path: string, method = "GET", body?: unknown, token?: string, extraHeaders?: Record<string, string>): Promise<T> {
-  const debugBootstrap = Platform.OS !== "web" && __DEV__ && path === "/config";
-  if (debugBootstrap) {
-    let origin = "(missing or invalid)";
-    try { origin = new URL(base ?? "").origin; } catch {}
-    console.info("[Safe Walk API] Startup request", { platform: Platform.OS, origin });
-  }
   if (Platform.OS !== "web" && !base) throw new ApiError("Set EXPO_PUBLIC_API_URL to your API's HTTPS origin to use the native app.", 0);
   let response: Response;
   const controller = new AbortController();
@@ -25,22 +19,10 @@ async function request<T>(path: string, method = "GET", body?: unknown, token?: 
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: controller.signal,
     });
-  } catch (error) {
-    if (debugBootstrap) console.warn("[Safe Walk API] Startup transport failed", { errorType: error instanceof Error ? error.name : "Unknown" });
-    if (Platform.OS !== "web" && __DEV__) {
-      const detail = error instanceof Error && /network request failed/i.test(error.message)
-        ? "The phone could not resolve or connect to the HTTPS API host."
-        : "The phone's HTTPS request failed before the API responded.";
-      throw new ApiError(`Couldn't reach Safe Walk. ${detail}`, 0);
-    }
+  } catch {
     throw new ApiError("Couldn't reach Safe Walk. Check your connection and try again.", 0);
   } finally {
     clearTimeout(timeout);
-  }
-  const contentType = response.headers.get("content-type") ?? "";
-  if (debugBootstrap) console.info("[Safe Walk API] Startup response", { status: response.status, contentType });
-  if (!contentType.toLowerCase().includes("json")) {
-    throw new ApiError("Safe Walk received a web page instead of API data. Check the API address and development-server access.", response.status, "INVALID_API_RESPONSE");
   }
   const result = await response.json();
   if (!response.ok) throw new ApiError(result.error ?? "Something went wrong. Please try again.", response.status, result.code);
@@ -48,7 +30,7 @@ async function request<T>(path: string, method = "GET", body?: unknown, token?: 
 }
 export const api = {
   config: () => request<ContactsConfig & { routingAvailable: boolean }>("/config"),
-  geocode: (query: string) => request<Place[]>(`/geocode?q=${encodeURIComponent(query)}`),
+  geocode: (query: string, near?: Point) => request<Place[]>("/geocode", "POST", { q: query, near }),
   routes: (from: Point, to: Point) => request<RouteResult>("/routes", "POST", { from, to }),
   demo: () => request<RouteResult & { from: Place; to: Place }>("/demo"),
   createTrip: (routeGeometry: Geometry, etaSeconds: number, demo: boolean) =>

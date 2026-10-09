@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { api } from "../lib/api";
-import type { Place } from "../shared/types";
+import type { Place, Point } from "../shared/types";
 import { palette } from "../constants/theme";
 
-export default function AddressSearch({ label, placeholder, value, onSelect, onClear, required = false }: {
-  label: string; placeholder: string; value: Place | null; onSelect: (place: Place) => void; onClear?: () => void; required?: boolean;
+export default function AddressSearch({ label, placeholder, value, onSelect, onClear, required = false, near }: {
+  label: string; placeholder: string; value: Place | null; onSelect: (place: Place) => void; onClear?: () => void; required?: boolean; near?: Point | null;
 }) {
   const [query, setQuery] = useState(value?.label ?? "");
   const [results, setResults] = useState<Place[]>([]);
@@ -27,7 +27,7 @@ export default function AddressSearch({ label, placeholder, value, onSelect, onC
     const id = ++requestId.current;
     setLoading(true); setError(""); setSearched(true);
     // Public Nominatim forbids autocomplete: submit only on a deliberate search.
-    try { const items = await api.geocode(q); if (id === requestId.current) setResults(items); }
+    try { const items = await api.geocode(q, near ?? undefined); if (id === requestId.current) setResults(items); }
     catch (e) { if (id === requestId.current) { setResults([]); setError(e instanceof Error ? e.message : "Address search is unavailable."); } }
     finally { if (id === requestId.current) setLoading(false); }
   }

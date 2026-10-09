@@ -39,6 +39,12 @@ app.use("/api", contactsRouter);
 app.get("/api/geocode", async (request, response) => {
   response.json(await geocode(typeof request.query.q === "string" ? request.query.q : ""));
 });
+app.post("/api/geocode", async (request, response) => {
+  response.json(await geocode(
+    typeof request.body?.q === "string" ? request.body.q : "",
+    request.body?.near,
+  ));
+});
 app.get("/api/demo", (_request, response) => response.json(demoRoutes()));
 app.post("/api/routes", rateLimit(30, 3600000), async (request, response) => {
   response.json(await walkingRoutes(request.body?.from, request.body?.to));

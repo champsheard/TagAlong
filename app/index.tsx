@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useWalk } from "../hooks/useWalk";
 import MapView from "../components/MapView";
 import AddressSearch from "../components/AddressSearch";
+import DraggableDrawer from "../components/DraggableDrawer";
 import { ActionButton, Eyebrow, Notice, SectionTitle } from "../components/WalkUI";
 import { common, palette } from "../constants/theme";
 
@@ -19,6 +20,7 @@ export default function Index() {
   const [showHelpConfirm, setShowHelpConfirm] = useState(false);
   const [searchTarget, setSearchTarget] = useState<"from" | "to">("to");
   const [focusedPlace, setFocusedPlace] = useState<{ lat: number; lng: number } | null>(null);
+  const [actualPanelHeight, setActualPanelHeight] = useState(height * 0.58);
   const mapRoutes = useMemo(() => (walk.phase === "walking" && walk.trip ? [walk.trip.route] : walk.result?.routes ?? []).map(route => ({
     id: route.id, geometry: route.geometry, color: route.id === walk.selectedRoute?.id ? routeColors.selected : routeColors.fastest,
   })), [walk.result, walk.selectedRoute, walk.phase, walk.trip?.route]);
@@ -28,23 +30,27 @@ export default function Index() {
   ], [walk.from, walk.to]);
   const firstCoord = (walk.selectedRoute ?? walk.trip?.route)?.geometry.coordinates[0];
   const mapCenter = useMemo(() => {
-    const point = walk.phase === "walking" ? walk.position ?? walk.from : focusedPlace ?? walk.to ?? walk.from;
+    const point = walk.phase === "walking"
+      ? walk.position ?? walk.mapLocation ?? walk.from
+      : focusedPlace ?? walk.to ?? walk.from ?? walk.mapLocation ?? walk.position;
     const resolvedPoint = point ??
       (firstCoord ? { lat: firstCoord[1], lng: firstCoord[0] } : null);
     return resolvedPoint ? { lat: resolvedPoint.lat, lng: resolvedPoint.lng } : { lat: 37.7749, lng: -122.4194 };
-  }, [walk.position?.lat, walk.position?.lng, walk.phase, walk.from?.lat, walk.from?.lng, walk.to?.lat, walk.to?.lng, focusedPlace?.lat, focusedPlace?.lng, firstCoord?.[0], firstCoord?.[1]]);
+  }, [walk.position?.lat, walk.position?.lng, walk.mapLocation?.lat, walk.mapLocation?.lng, walk.phase, walk.from?.lat, walk.from?.lng, walk.to?.lat, walk.to?.lng, focusedPlace?.lat, focusedPlace?.lng, firstCoord?.[0], firstCoord?.[1]]);
   const panelHeight = walk.phase === "walking" ? height * 0.44
     : walk.phase === "routes" || walk.phase === "consent" ? height * 0.64
       : walk.phase === "finished" ? height * 0.52 : height * 0.58;
   const route = walk.selectedRoute;
+  useEffect(() => { setActualPanelHeight(panelHeight); }, [panelHeight]);
 
   if (walk.restoring) return <View style={[common.page, s.center]}><ActivityIndicator size="large" color={palette.evergreen} /><Text style={s.loading}>Checking for an active walk…</Text></View>;
 
   return <View style={s.screen}>
     <View style={StyleSheet.absoluteFill}>
-      <MapView center={mapCenter} routes={mapRoutes} markers={mapMarkers} livePosition={walk.position}
-        fitPadding={{ top: insets.top + 74, right: 28, bottom: panelHeight + 14, left: 28 }}
-        attributionBottom={panelHeight + 7} />
+      <MapView center={mapCenter} routes={mapRoutes} markers={mapMarkers}
+        livePosition={walk.phase === "walking" ? walk.position : walk.mapLocation}
+        fitPadding={{ top: insets.top + 74, right: 28, bottom: actualPanelHeight + 14, left: 28 }}
+        attributionBottom={actualPanelHeight + 7} />
     </View>
 
     <View style={[s.topBar, { paddingTop: insets.top + 8 }]}>
@@ -57,10 +63,22 @@ export default function Index() {
         </Pressable>
     </View>
 
-    <View style={s.panelDock}>
-      <View style={[s.panel, { height: panelHeight, paddingBottom: Math.max(insets.bottom, 14) }]}>
-        <View style={s.grabber} />
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.panelContent} showsVerticalScrollIndicator={false}>
+    <DraggableDrawer
+      style={[s.panel, { paddingBottom: Math.max(insets.bottom, 14) }]}
+      initialHeight={panelHeight}
+      minHeight={Math.min(230, height * 0.32)}
+      maxHeight={Math.max(180, height - insets.top - 68)}
+      resetKey={walk.phase}
+      onHeightSettled={setActualPanelHeight}
+    >
+        <ScrollView
+          style={{ flex: 1 }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+          automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+          contentContainerStyle={s.panelContent}
+          showsVerticalScrollIndicator={false}
+        >
           {walk.phase === "plan" ? <>
             <View style={s.planHeading}>
               <View style={{ flex: 1 }}><Eyebrow>PLAN A WALK</Eyebrow><Text style={s.panelTitle}>Where to tonight?</Text></View>
@@ -80,8 +98,8 @@ export default function Index() {
             </View>
             <View style={s.searchArea}>
               {searchTarget === "from"
-                ? <AddressSearch label="Starting point" placeholder="Search an address or place" value={walk.from} onSelect={place => { setFocusedPlace(place); walk.setFrom(place); }} onClear={() => { setFocusedPlace(null); walk.setFrom(null); }} />
-                : <AddressSearch label="Where are you going?" placeholder="Search street, place, or landmark" value={walk.to} onSelect={place => { setFocusedPlace(place); walk.setTo(place); }} onClear={() => { setFocusedPlace(null); walk.setTo(null); }} required />}
+                ? <AddressSearch label="Starting point" placeholder="Search an address or place" value={walk.from} near={walk.mapLocation ?? walk.from} onSelect={place => { setFocusedPlace(place); walk.setFrom(place); }} onClear={() => { setFocusedPlace(null); walk.setFrom(null); }} />
+                : <AddressSearch label="Where are you going?" placeholder="Search street, place, or landmark" value={walk.to} near={walk.mapLocation ?? walk.from} onSelect={place => { setFocusedPlace(place); walk.setTo(place); }} onClear={() => { setFocusedPlace(null); walk.setTo(null); }} required />}
             </View>
             {searchTarget === "from" ? <Pressable accessibilityRole="button" onPress={walk.locateStart} disabled={walk.busy} style={s.locationAction}>
               <Text style={s.locationActionText}>{walk.busy ? "Finding your location…" : "Use my current location"}</Text>
@@ -188,8 +206,7 @@ export default function Index() {
             {!walk.trip?.pendingEnd ? <ActionButton title="Plan another walk" onPress={walk.reset} style={{ marginTop: 20 }} /> : null}
           </> : null}
         </ScrollView>
-      </View>
-    </View>
+    </DraggableDrawer>
 
     <Modal visible={showHelpConfirm} transparent animationType="fade" onRequestClose={() => setShowHelpConfirm(false)}>
       <View style={s.modalBackdrop}><View style={s.modalCard}>
@@ -216,9 +233,7 @@ const s = StyleSheet.create({
   contactsButton: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: palette.evergreen, minHeight: 44, borderRadius: 15, paddingHorizontal: 14, shadowColor: palette.evergreen, shadowOpacity: 0.18, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 3 },
   contactsGlyph: { color: palette.citron, fontSize: 22, lineHeight: 24, fontWeight: "600" },
   contactsLabel: { color: palette.paper, fontSize: 13, fontWeight: "800" },
-  panelDock: { position: "absolute", bottom: 0, left: 0, right: 0, alignItems: "center", zIndex: 2, pointerEvents: "box-none" },
   panel: { width: "100%", maxWidth: 600, backgroundColor: palette.paper, borderTopLeftRadius: 26, borderTopRightRadius: 26, paddingHorizontal: 18, paddingTop: 10, borderWidth: 1, borderBottomWidth: 0, borderColor: palette.line, shadowColor: palette.evergreen, shadowOpacity: 0.13, shadowRadius: 20, shadowOffset: { width: 0, height: -5 }, elevation: 10 },
-  grabber: { alignSelf: "center", width: 38, height: 4, borderRadius: 3, backgroundColor: "#C7CEBC", marginBottom: 14 },
   panelContent: { paddingBottom: 4 },
   planHeading: { flexDirection: "row", alignItems: "center" },
   panelTitle: { color: palette.evergreen, fontSize: 25, lineHeight: 30, fontWeight: "900", letterSpacing: -0.7 },
