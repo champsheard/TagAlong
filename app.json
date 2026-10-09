@@ -9,7 +9,8 @@
       "bundleIdentifier": "app.safewalk.mobile"
     },
     "android": {
-      "package": "app.safewalk.mobile"
+      "package": "app.safewalk.mobile",
+      "blockedPermissions": ["android.permission.WRITE_CONTACTS"]
     },
     "userInterfaceStyle": "automatic",
     "web": {
@@ -25,7 +26,7 @@
         }
       ],
       "expo-secure-store",
-      ["expo-contacts", { "contactsPermission": "With your permission, Safe Walk reads contact names locally and sends hashed phone/email identifiers to find app users. Names stay on your phone." }],
+      ["expo-contacts", { "contactsPermission": "With your permission, Safe Walk reads contact names and phone numbers on this device so you can share a walk link. Your contacts are not uploaded to Safe Walk." }],
       ["expo-notifications", { "enableBackgroundRemoteNotifications": true }],
       ["expo-widgets", { "enablePushNotifications": true, "frequentUpdates": true, "widgets": [] }],
       ["react-native-android-widget", { "widgets": [{ "name": "SafeWalkTrackingWidget", "label": "Safe Walk tracking", "description": "Track a shared walk and open its map.", "minWidth": "250dp", "minHeight": "110dp", "targetCellWidth": 4, "targetCellHeight": 2, "resizeMode": "horizontal|vertical", "updatePeriodMillis": 1800000 }] }]

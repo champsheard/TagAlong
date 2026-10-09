@@ -189,7 +189,7 @@ export default function Index() {
               <ActionButton title="Share link" onPress={walk.shareTrip} style={{ marginTop: 12 }} />
               {!!walk.notice && <Text style={s.noticeText}>{walk.notice}</Text>}
             </View>
-            <Pressable accessibilityRole="button" onPress={() => router.push("/contacts")} style={s.contactsDuringWalk}><Text style={s.contactsDuringText}>Choose an app contact</Text><Text style={s.contactsArrow}>›</Text></Pressable>
+            <Pressable accessibilityRole="button" onPress={() => router.push("/contacts")} style={s.contactsDuringWalk}><Text style={s.contactsDuringText}>{Platform.OS === "web" ? "Choose an app contact" : "Choose a phone contact"}</Text><Text style={s.contactsArrow}>›</Text></Pressable>
             <ActionButton title="I’ve arrived" onPress={() => walk.endTrip("arrived")} style={{ marginTop: 14 }} />
             <ActionButton title="Need help" onPress={() => setShowHelpConfirm(true)} danger secondary style={{ marginTop: 9 }} />
             <Text style={s.centerNote}>Need urgent help? Call 911. Safe Walk does not contact emergency services.</Text>
@@ -199,7 +199,7 @@ export default function Index() {
             <View style={[s.finishedMark, walk.finishedStatus === "help" && { backgroundColor: palette.redBg }]}><Text style={[s.finishedMarkText, walk.finishedStatus === "help" && { color: palette.red }]}>{walk.finishedStatus === "arrived" ? "✓" : walk.finishedStatus === "help" ? "!" : "—"}</Text></View>
             <SectionTitle eyebrow={walk.finishedStatus === "help" ? "Help status" : walk.finishedStatus === "expired" ? "Trip ended" : "Trip complete"}
               title={walk.finishedStatus === "help" ? walk.trip?.pendingEnd ? "Sending your help status…" : "Your trip is marked for help." : walk.finishedStatus === "expired" ? "This tracking link has expired." : "You made it."}
-              subtitle={walk.finishedStatus === "help" ? "The tracking link shows your help status. App contacts you shared with may receive a notification; delivery is not guaranteed. No emergency call is made." : walk.finishedStatus === "expired" ? "This trip is no longer sharing a live location." : "Location sharing has stopped for this trip."} />
+              subtitle={walk.finishedStatus === "help" ? "Anyone with the private trip link can view the help status. No emergency call is made." : walk.finishedStatus === "expired" ? "This trip is no longer sharing a live location." : "Location sharing has stopped for this trip."} />
             {walk.finishedStatus === "help" ? <Notice tone="danger">If you are in immediate danger, call 911 now. Safe Walk cannot call for you.</Notice> : null}
             {!!walk.sendError ? <View style={{ marginTop: 13 }}><Notice tone="warning">{walk.sendError}</Notice></View> : null}
             {walk.trip?.pendingEnd ? <Text style={s.centerNote}>Your contact’s status is waiting for a connection. Keep this screen open; we’ll retry automatically. Starting another trip is unavailable until it sends.</Text> : null}

@@ -18,20 +18,23 @@ on arrival, help or expiry. Precise coordinates and identifiers must not enter l
 **How to apply:** Preserve these boundaries when adding maps, trips, tracking,
 storage or services. Do not turn optional contact enrollment into mandatory login.
 
-On 2026-10-06 the user selected “Automatic phone/email matching” rather than
-private QR pairing, explicitly accepting verified identifier matching and a change
-to the earlier no-identifier-collection promise. Optional app-recipient
-notifications and native tracking widgets are now approved scope.
+On 2026-10-06, the user selected automatic phone/email matching rather than
+private QR pairing. On 2026-10-09, they superseded that choice for native mobile:
+use Expo Contacts locally to select a recipient and prefill a private trip link in
+the phone's message composer. Native mobile must not verify email, upload
+contacts/identifiers, or use app-to-app discovery. The browser contact flow keeps
+verified matching.
 
-**Why:** The user's current request supersedes the MVP's earlier restriction;
-do not block matching with the obsolete promise, or quietly expand it beyond
-the consented identifiers.
+**Why:** The user made separate, explicit choices for browser matching and native
+mobile link sharing; applying one platform's consent to the other changes the
+privacy model.
 
-**How to apply:** Keep names/address books on-device, collect only what ownership
-verification needs, make discovery optional/removable, and preserve sharing links
-with anyone. Hashing does not mean zero identifier processing. Help still stops
-GPS and freezes the last-known fix; app notifications are best effort, never
-emergency calls. Do not say a notification was delivered merely because queued.
+**How to apply:** Keep native contact reads on-device, pass only the chosen
+number and active trip link to the phone composer, and let the user send it.
+Preserve an explicit way to remove any legacy native enrollment rather than
+deleting its server data automatically. Help still stops GPS and freezes the
+last-known fix; notifications are best effort, never emergency calls.
+Do not say a notification was delivered merely because it was queued.
 
 Background recipient widgets do not authorize background walker GPS collection.
 
