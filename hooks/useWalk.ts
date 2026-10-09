@@ -46,7 +46,7 @@ export function useWalk() {
   useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, []);
   useEffect(() => {
     let mounted = true;
-    api.config().then(c => mounted && setRoutingAvailable(c.routingAvailable)).catch(() => mounted && setError("Couldn't connect to Safe Walk. Check your connection and retry."));
+    api.config().then(c => mounted && setRoutingAvailable(c.routingAvailable)).catch(e => mounted && setError(message(e)));
     (async () => {
       try {
         const saved = await readTrip();
