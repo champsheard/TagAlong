@@ -9,6 +9,7 @@ import { createTrip, endTrip, trackTrip, updateLocation } from "./trips";
 import { HttpError } from "./errors";
 import { rateLimit } from "./rateLimit";
 import { contactsConfig, contactsRouter } from "./contactsRouter";
+import { submitArrivalFeedback } from "./feedback";
 
 export const app = express();
 
@@ -35,6 +36,9 @@ app.get("/api/health", (_request, response) => {
 });
 
 app.get("/api/config", async (_request, response) => response.json({ routingAvailable: !!process.env.ORS_API_KEY, demoAvailable: true, locationIntervalSeconds: 5, ...await contactsConfig() }));
+app.post("/api/feedback", rateLimit(10, 3600000), (request, response) => {
+  response.status(201).json(submitArrivalFeedback(request.body));
+});
 app.use("/api", contactsRouter);
 app.get("/api/geocode", async (request, response) => {
   response.json(await geocode(typeof request.query.q === "string" ? request.query.q : ""));

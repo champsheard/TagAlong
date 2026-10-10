@@ -71,6 +71,14 @@ database.exec(`
     attempts INTEGER NOT NULL DEFAULT 0, next_attempt_at INTEGER NOT NULL, created_at INTEGER NOT NULL
   );
   CREATE INDEX IF NOT EXISTS notification_pending ON notification_outbox(state,next_attempt_at);
+  CREATE TABLE IF NOT EXISTS arrival_feedback (
+    id TEXT PRIMARY KEY,
+    route_rating INTEGER NOT NULL CHECK(route_rating BETWEEN 1 AND 5),
+    reports TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS arrival_feedback_expiry ON arrival_feedback(expires_at);
 `);
 
 const installationColumns = database.pragma("table_info(installations)") as { name: string }[];
@@ -93,4 +101,5 @@ export function purgeExpired(now = Date.now()) {
   database.prepare("DELETE FROM verification_challenges WHERE expires_at <= ?").run(now);
   database.prepare("DELETE FROM installations WHERE seen_at < ?").run(now - 90 * 86400000);
   database.prepare("DELETE FROM notification_outbox WHERE created_at < ?").run(now - 86400000);
+  database.prepare("DELETE FROM arrival_feedback WHERE expires_at <= ?").run(now);
 }

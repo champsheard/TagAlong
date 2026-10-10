@@ -64,6 +64,33 @@ test("arrival stops writes, is idempotent, and retains link for four hours", asy
   assert.equal(read.data.status, "arrived");
   assert.ok(Math.abs(read.data.expiresAt - Date.now() - 14400000) < 2000);
 });
+test("arrival feedback is anonymous, validates ratings, and expires after 90 days", async () => {
+  assert.equal((await call("/feedback", { routeRating: 0 })).status, 400);
+  assert.equal((await call("/feedback", { routeRating: 4, shareCode: "must-not-be-accepted" })).status, 400);
+  assert.equal((await call("/feedback", {
+    routeRating: 4,
+    reports: [{ streetOrBlock: "Oak Street", lightingRating: 5.5 }],
+  })).status, 400);
+
+  const result = await call("/feedback", {
+    routeRating: 2,
+    reports: [{ streetOrBlock: "Oak Street", lightingRating: 1, notes: "Several lamps were out." }],
+  });
+  assert.equal(result.status, 201);
+  assert.deepEqual(result.data, { ok: true });
+  const saved = db.database.prepare("SELECT * FROM arrival_feedback").get() as {
+    id: string; route_rating: number; reports: string; created_at: number; expires_at: number;
+  };
+  assert.equal(saved.route_rating, 2);
+  assert.deepEqual(JSON.parse(saved.reports), [
+    { streetOrBlock: "Oak Street", lightingRating: 1, notes: "Several lamps were out." },
+  ]);
+  assert.deepEqual(Object.keys(saved).sort(), ["created_at", "expires_at", "id", "reports", "route_rating"]);
+  assert.ok(Math.abs(saved.expires_at - Date.now() - 90 * 86400000) < 2000);
+  db.database.prepare("UPDATE arrival_feedback SET expires_at = ? WHERE id = ?").run(Date.now() - 1, saved.id);
+  db.purgeExpired();
+  assert.equal(db.database.prepare("SELECT id FROM arrival_feedback WHERE id = ?").get(saved.id), undefined);
+});
 test("help freezes the last-known location and marks the public trip", async () => {
   const t = await trip(), position = { lat: 0, lng: 0.0003, accuracy: 7, timestamp: Date.now() };
   await call(`/trips/${t.tripId}/location`, position, t.writeToken);

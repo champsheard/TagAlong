@@ -7,6 +7,7 @@ import MapView from "../components/MapView";
 import AddressSearch from "../components/AddressSearch";
 import DraggableDrawer from "../components/DraggableDrawer";
 import { ActionButton, Eyebrow, Notice, SectionTitle } from "../components/WalkUI";
+import ArrivalFeedback from "../components/ArrivalFeedback";
 import { common, palette } from "../constants/theme";
 import { useContacts } from "../hooks/useContacts";
 
@@ -50,7 +51,7 @@ export default function Index() {
   }, [walk.position?.lat, walk.position?.lng, walk.mapLocation?.lat, walk.mapLocation?.lng, walk.phase, walk.from?.lat, walk.from?.lng, walk.to?.lat, walk.to?.lng, focusedPlace?.lat, focusedPlace?.lng, firstCoord?.[0], firstCoord?.[1]]);
   const panelHeight = walk.phase === "walking" ? height * 0.44
     : walk.phase === "routes" ? height * 0.64
-      : walk.phase === "finished" ? height * 0.52 : height * 0.58;
+      : walk.phase === "finished" ? height * (walk.finishedStatus === "arrived" && !walk.demo && !walk.trip?.pendingEnd ? 0.68 : 0.52) : height * 0.58;
   const route = walk.selectedRoute;
   useEffect(() => { setActualPanelHeight(panelHeight); }, [panelHeight]);
   useEffect(() => () => {
@@ -247,6 +248,7 @@ export default function Index() {
             {walk.finishedStatus === "help" ? <Notice tone="danger">If you are in immediate danger, call 911 now. Safe Walk cannot call for you.</Notice> : null}
             {!!walk.sendError ? <View style={{ marginTop: 13 }}><Notice tone="warning">{walk.sendError}</Notice></View> : null}
             {walk.trip?.pendingEnd ? <Text style={s.centerNote}>Your contact’s status is waiting for a connection. Keep this screen open; we’ll retry automatically. Starting another trip is unavailable until it sends.</Text> : null}
+            {walk.finishedStatus === "arrived" && !walk.demo && !walk.trip?.pendingEnd ? <ArrivalFeedback /> : null}
             {!walk.trip?.pendingEnd ? <ActionButton title="Plan another walk" onPress={walk.reset} style={{ marginTop: 20 }} /> : null}
           </> : null}
         </ScrollView>

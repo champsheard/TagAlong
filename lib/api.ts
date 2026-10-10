@@ -1,5 +1,5 @@
 import { Platform, Share } from "react-native";
-import type { Geometry, Place, Point, Position, RouteResult, TrackingData, TripCredentials } from "../shared/types";
+import type { ArrivalFeedbackPayload, Geometry, Place, Point, Position, RouteResult, TrackingData, TripCredentials } from "../shared/types";
 import type { ContactMatch, ContactsConfig, IdentifierKind, InstallationProfile, InstallationSession, ReceivedTrip } from "../shared/contacts";
 
 const configured = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, "");
@@ -39,6 +39,8 @@ export const api = {
     request<{ ok: boolean }>(`/trips/${trip.tripId}/location`, "POST", position, trip.writeToken),
   end: (trip: TripCredentials, status: "arrived" | "help") =>
     request<{ ok: boolean }>(`/trips/${trip.tripId}/end`, "POST", { status }, trip.writeToken),
+  feedback: (body: ArrivalFeedbackPayload) =>
+    request<{ ok: boolean }>("/feedback", "POST", body),
   track: (code: string) => request<TrackingData>(`/track/${encodeURIComponent(code)}`),
   enroll: (platform: string) => request<InstallationSession>("/installations", "POST", { platform }),
   profile: (s: InstallationSession) => request<InstallationProfile>("/installations/me", "GET", undefined, s.authToken),

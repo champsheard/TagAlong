@@ -23,3 +23,12 @@ export type TripCredentials = {
   etaAt: number; expiresAt: number; demo: boolean; pendingEnd?: "arrived" | "help";
   routeLabel?: RouteOption["label"];
 };
+export type ArrivalFeedbackReport = {
+  streetOrBlock: string;
+  lightingRating: number;
+  notes?: string;
+};
+export type ArrivalFeedbackPayload = {
+  routeRating: number;
+  reports: ArrivalFeedbackReport[];
+};

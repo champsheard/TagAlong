@@ -80,3 +80,13 @@ and street-level reports can reveal sensitive location context.
 **How to apply:** Validate and rate-limit feedback server-side. Use entered street
 or block descriptions because the route API does not provide street names.
 Automatically delete reports after 90 days and never log sensitive fields.
+
+Collect arrival feedback only after a real walk is confirmed arrived; omit demos,
+help-status trips, and expirations.
+
+**Why:** Simulated routes and lighting must not be mistaken for real street
+conditions, and help or expiry is not a confirmed arrival.
+
+**How to apply:** Show the survey after the arrival status reaches the server and
+the pending end command clears. Keep it optional and leave “Plan another walk”
+available without submission.
