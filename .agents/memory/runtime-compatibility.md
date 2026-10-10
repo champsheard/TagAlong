@@ -51,3 +51,14 @@ browser automation can also accidentally click hidden controls from that stack.
 **How to apply:** Use back navigation with replacement only for a direct-entry
 fallback. Verify there is only one walking screen after round trips through
 settings, and filter browser test controls by actual visibility.
+
+Keep React-dependent preview libraries inside the isolated mockup sandbox's own
+dependency tree.
+
+**Why:** When a sandbox component imports React locally but a renderer such as
+React Leaflet or React Native Web resolves from the main app's root, the browser
+can load two React copies and fail at runtime with invalid hook calls even when
+TypeScript passes.
+
+**How to apply:** Declare renderer and map packages in the sandbox package
+manifest, install them there, and verify the preview browser has no hook errors.
