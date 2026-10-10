@@ -15,17 +15,37 @@ export async function readDeviceContacts(country: string): Promise<DeviceContact
     if (!page.hasNextPage) break;
   }
   const canonical = new Map<string, string>();
-  const prepared = contacts.map(contact => {
+  const prepared = contacts.map((contact, index) => {
     const keys = [
       ...(contact.phoneNumbers ?? []).map(n => { const p = normalizeIdentifier("phone", n.number ?? "", country); return p ? canonicalIdentifier("phone", p) : null; }),
       ...(contact.emails ?? []).map(e => { const email = normalizeIdentifier("email", e.email ?? ""); return email ? canonicalIdentifier("email", email) : null; }),
     ].filter((v): v is string => !!v);
     keys.forEach(k => canonical.set(k, ""));
-    return { id: contact.id ?? `contact-${contacts.indexOf(contact)}`, name: contact.name || "Unnamed contact", keys };
+    return {
+      id: contact.id ?? `contact-${index}`,
+      name: contact.name || "Unnamed contact",
+      keys,
+      phoneNumbers: (contact.phoneNumbers ?? []).flatMap(phone => {
+        const number = phone.number?.trim();
+        return number ? [{ number, label: phone.label || "Phone" }] : [];
+      }),
+      emails: (contact.emails ?? []).flatMap(entry => {
+        const email = entry.email?.trim();
+        return email ? [email] : [];
+      }),
+    };
   });
   const keys = [...canonical.keys()];
   for (let i = 0; i < keys.length; i += 100) {
     await Promise.all(keys.slice(i, i + 100).map(async k => canonical.set(k, await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, k))));
   }
-  return prepared.map(c => ({ id: c.id, name: c.name, hashes: [...new Set(c.keys.map(k => canonical.get(k)!))], installationIds: [], notificationsEnabled: false }));
+  return prepared.map(c => ({
+    id: c.id,
+    name: c.name,
+    hashes: [...new Set(c.keys.map(k => canonical.get(k)!))],
+    installationIds: [],
+    notificationsEnabled: false,
+    phoneNumbers: c.phoneNumbers,
+    emails: c.emails,
+  }));
 }

@@ -87,7 +87,7 @@ export function useContacts() {
   const share = (trip: TripCredentials, contact: DeviceContact) => perform(async () => {
     const result = await api.shareToContact(await ensureInstallation(), trip, contact.installationIds);
     setNotice(result.notificationsQueued ? `Shared with ${contact.name}'s app. A notification is queued; delivery depends on their device and connection.`
-      : `Shared with ${contact.name}'s app inbox. Notifications aren't enabled on that device; send a link as well if needed.`);
+      : `Shared with ${contact.name}'s app inbox. No push notification was queued for this share; push may be disabled or a recent notification may have been suppressed.`);
   });
   return { profile, config, contacts, inbox, challenge, busy, loading, error, refreshError, notice, enroll, begin, confirm, cancelVerification, sync, notifications, discoverable, forget, share };
 }

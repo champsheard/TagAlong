@@ -7,7 +7,10 @@ export type InstallationProfile = {
   verifiedKinds: IdentifierKind[]; discoverable: boolean; notificationsEnabled: boolean;
 };
 export type ContactMatch = { hash: string; installationId: string; notificationsEnabled: boolean };
-export type DeviceContact = { id: string; name: string; hashes: string[]; installationIds: string[]; notificationsEnabled: boolean };
+export type DeviceContact = {
+  id: string; name: string; hashes: string[]; installationIds: string[]; notificationsEnabled: boolean;
+  phoneNumbers?: { number: string; label: string }[]; emails?: string[];
+};
 export type ContactsConfig = {
   smsVerificationAvailable: boolean; emailVerificationAvailable: boolean; remoteWidgetsAvailable: boolean;
 };

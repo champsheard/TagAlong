@@ -26,7 +26,7 @@
         }
       ],
       "expo-secure-store",
-      ["expo-contacts", { "contactsPermission": "With your permission, Safe Walk reads contact names and phone numbers on this device so you can share a walk link. Your contacts are not uploaded to Safe Walk." }],
+      ["expo-contacts", { "contactsPermission": "Safe Walk keeps contact names and raw details on this device. It sends locally hashed phone and email identifiers only to find opted-in Safe Walk users." }],
       ["expo-notifications", { "enableBackgroundRemoteNotifications": true }],
       ["expo-widgets", { "enablePushNotifications": true, "frequentUpdates": true, "widgets": [] }],
       ["react-native-android-widget", { "widgets": [{ "name": "SafeWalkTrackingWidget", "label": "Safe Walk tracking", "description": "Track a shared walk and open its map.", "minWidth": "250dp", "minHeight": "110dp", "targetCellWidth": 4, "targetCellHeight": 2, "resizeMode": "horizontal|vertical", "updatePeriodMillis": 1800000 }] }]

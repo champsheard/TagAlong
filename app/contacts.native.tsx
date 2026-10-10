@@ -1,134 +1,91 @@
 import { useEffect, useMemo, useState } from "react";
-import * as SMS from "expo-sms";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Alert, FlatList, Linking, Pressable, Share, StyleSheet, Text, TextInput, View } from "react-native";
+import * as SMS from "expo-sms";
 import { ActionButton, BrandHeader, Eyebrow, Notice, SectionTitle } from "../components/WalkUI";
 import { common, palette } from "../constants/theme";
-import { PhoneContactsPermissionError, readPhoneRecipients, type PhoneRecipient } from "../lib/phoneContacts.native";
-import { ApiError, api, tripLink } from "../lib/api";
-import { clearTrackingWidget } from "../lib/trackingWidget";
-import { readInstallation, saveInstallation } from "../lib/installationStorage";
+import { useContacts } from "../hooks/useContacts";
+import { tripLink } from "../lib/api";
 import { readTrip } from "../lib/tripStorage";
-import type { InstallationSession } from "../shared/contacts";
+import type { DeviceContact, ReceivedTrip } from "../shared/contacts";
 import type { TripCredentials } from "../shared/types";
+import { Alert, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 
 export default function NativeContacts() {
+  const c = useContacts();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [trip, setTrip] = useState<TripCredentials | null>(null);
-  const [contacts, setContacts] = useState<PhoneRecipient[]>([]);
+  const [identifier, setIdentifier] = useState("");
+  const [code, setCode] = useState("");
+  const [country, setCountry] = useState("US");
   const [search, setSearch] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-  const [settingsNeeded, setSettingsNeeded] = useState(false);
+  const [trip, setTrip] = useState<TripCredentials | null>(null);
+  const [linkNotice, setLinkNotice] = useState("");
   const [sharingId, setSharingId] = useState("");
-  const [legacySession, setLegacySession] = useState<InstallationSession | null>(null);
-  const [removingLegacy, setRemovingLegacy] = useState(false);
+  const verified = !!c.profile?.verifiedKinds.length;
 
   useEffect(() => {
-    let mounted = true;
     readTrip()
-      .then(value => {
-        if (mounted && value && !value.pendingEnd && value.expiresAt > Date.now()) setTrip(value);
-      })
-      .catch(() => { if (mounted) setError("Your active walk couldn't be loaded. Return to the map and try again."); });
-    readInstallation()
-      .then(value => { if (mounted) setLegacySession(value); })
-      .catch(() => {});
-    return () => { mounted = false; };
+      .then(value => { if (value && !value.pendingEnd && value.expiresAt > Date.now()) setTrip(value); })
+      .catch(() => setLinkNotice("Your active walk couldn't be loaded. Return to the map and try again."));
   }, []);
 
-  const visibleContacts = useMemo(() => {
+  const contacts = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
-    return contacts.filter(contact => !query ||
-      contact.name.toLocaleLowerCase().includes(query) || contact.number.toLocaleLowerCase().includes(query));
-  }, [contacts, search]);
+    return c.contacts.filter(contact => {
+      if (!query) return true;
+      const searchable = [
+        contact.name,
+        ...(contact.phoneNumbers ?? []).map(phone => phone.number),
+        ...(contact.emails ?? []),
+      ].join(" ").toLocaleLowerCase();
+      return searchable.includes(query);
+    });
+  }, [c.contacts, search]);
 
-  async function loadContacts() {
-    if (busy) return;
-    setBusy(true); setError(""); setNotice(""); setSettingsNeeded(false);
-    try {
-      const found = await readPhoneRecipients();
-      setContacts(found);
-      setNotice(found.length
-        ? `${found.length} phone numbers are available on this device. Names and numbers stay on your phone.`
-        : "No contacts with phone numbers were found.");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't read your phone contacts.");
-      setSettingsNeeded(e instanceof PhoneContactsPermissionError && !e.canAskAgain);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function messageLink(contact: PhoneRecipient) {
+  async function shareLink(phone?: string, key = "anyone") {
     if (!trip || sharingId) return;
-    setSharingId(contact.id); setError(""); setNotice("");
+    setSharingId(key); setLinkNotice("");
     try {
       const url = tripLink(trip.shareCode);
       const message = `Follow my Safe Walk trip: ${url}`;
-      if (await SMS.isAvailableAsync()) {
-        const result = await SMS.sendSMSAsync([contact.number], message);
-        if (result.result === "cancelled") setNotice("Message cancelled. The link wasn't sent.");
-        else if (result.result === "sent") setNotice("Your Messages app reports that the message was sent. Delivery isn't guaranteed.");
-        else setNotice("Your messaging app opened. Safe Walk can't confirm whether the message was sent.");
+      if (phone && await SMS.isAvailableAsync()) {
+        const result = await SMS.sendSMSAsync([phone], message);
+        if (result.result === "cancelled") setLinkNotice("Message cancelled. The link wasn't sent.");
+        else if (result.result === "sent") setLinkNotice("Your messaging app reports that the message was sent. Delivery isn't guaranteed.");
+        else setLinkNotice("Your messaging app opened. Safe Walk can't confirm whether the message was sent.");
       } else {
         const result = await Share.share({ message });
-        setNotice(result.action === Share.dismissedAction
+        setLinkNotice(result.action === Share.dismissedAction
           ? "Sharing cancelled. No link was sent."
           : "Choose a messaging app and recipient to share the private walk link.");
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't open the message composer.");
+      setLinkNotice(e instanceof Error ? e.message : "Couldn't open the message composer.");
     } finally {
       setSharingId("");
     }
   }
 
-  function confirmRemoveLegacyEnrollment() {
-    if (!legacySession || removingLegacy) return;
+  function removeEnrollment() {
     Alert.alert(
-      "Remove previous app matching?",
-      "This deletes this device's old matching identifiers, shared-trip inbox associations, and notification tokens. Your phone contacts and active walk link are not deleted.",
+      "Remove this device?",
+      "This deletes matching identifiers, app inbox associations, and notification tokens from Safe Walk. Your phone's contacts are not deleted. Existing private trip links still work.",
       [
-        { text: "Keep it", style: "cancel" },
-        { text: "Remove", style: "destructive", onPress: () => { void removeLegacyEnrollment(); } },
+        { text: "Keep enrollment", style: "cancel" },
+        { text: "Remove enrollment", style: "destructive", onPress: () => { void c.forget(); } },
       ],
     );
   }
 
-  async function removeLegacyEnrollment() {
-    const session = legacySession;
-    if (!session || removingLegacy) return;
-    setRemovingLegacy(true); setError(""); setNotice("");
-    try {
-      try { await api.forget(session); }
-      catch (e) { if (!(e instanceof ApiError && e.status === 401)) throw e; }
-      await saveInstallation(null);
-      setLegacySession(null);
-      let widgetClearFailed = false;
-      try { await clearTrackingWidget(); }
-      catch { widgetClearFailed = true; }
-      setNotice(widgetClearFailed
-        ? "Previous app matching and notification registration have been removed, but the old trip widget couldn't be cleared. Private links still work."
-        : "Previous app matching and notification registration have been removed. Private links still work.");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't remove the previous app enrollment.");
-    } finally {
-      setRemovingLegacy(false);
-    }
+  function openTrip(item: ReceivedTrip) {
+    router.push(`/track/${item.shareCode}`);
   }
 
   return (
-    <FlatList
-      style={common.page}
-      contentContainerStyle={[common.content, { gap: 16, paddingTop: insets.top, paddingBottom: insets.bottom + 40 }]}
-      data={visibleContacts}
-      keyExtractor={contact => contact.id}
-      keyboardShouldPersistTaps="handled"
-      ListHeaderComponent={<View style={{ gap: 16 }}>
+    <View style={[common.page, { paddingTop: insets.top }]}>
+      <ScrollView keyboardShouldPersistTaps="handled"
+        contentContainerStyle={[common.content, { gap: 16, paddingBottom: insets.bottom + 40 }]}>
         <View style={styles.header}>
           <BrandHeader />
           <Pressable accessibilityRole="button" accessibilityLabel="Back to map"
@@ -136,50 +93,150 @@ export default function NativeContacts() {
             <Text style={styles.back}>Back to map</Text>
           </Pressable>
         </View>
-        <SectionTitle eyebrow="Private link sharing" title="Choose someone you trust."
-          subtitle="Select a phone contact and open a message with your active walk link. You review it and decide whether to send." />
-        <View style={common.card}>
-          <Eyebrow>Contacts stay on your phone</Eyebrow>
-          <Text style={styles.body}>Safe Walk reads names and phone numbers only after you grant access. Your address book is not uploaded, and Safe Walk does not send the message for you.</Text>
-          {trip
-            ? <Text style={styles.small}>Anyone with the private link can view live location and trip status until it expires. Share it only with someone you trust.</Text>
-            : <Text style={styles.small}>Start a walk first to create a private link. You can load your contacts now and share the link while the walk is active.</Text>}
-          <ActionButton title={busy ? "Reading phone contacts…" : contacts.length ? "Refresh phone contacts" : "Choose from phone contacts"}
-            onPress={loadContacts} loading={busy} disabled={busy} style={{ marginTop: 12 }} />
-        </View>
-        {legacySession ? <View style={common.card}>
-          <Eyebrow>Previous app matching</Eyebrow>
-          <Text style={styles.body}>An older version may still have this device enrolled for app-to-app matching and notifications. New shares from this screen use private links only.</Text>
-          <ActionButton title={removingLegacy ? "Removing previous enrollment…" : "Remove previous app matching"}
-            danger secondary loading={removingLegacy} disabled={removingLegacy}
-            onPress={confirmRemoveLegacyEnrollment} style={{ marginTop: 12 }} />
+        <SectionTitle eyebrow="Optional app contacts" title="Share with a trusted person."
+          subtitle="Safe Walk is account-free. Contacts who opted in and verified a phone or email can receive an in-app trip and live preview. Everyone else can receive a private link." />
+        {c.loading ? <Text style={styles.small}>Loading Safe Walk contacts…</Text> : null}
+        {c.error ? <Notice tone="warning">{c.error}</Notice> : null}
+        {c.notice ? <Notice>{c.notice}</Notice> : null}
+        {c.refreshError ? <Notice tone="warning">Shared trips couldn't refresh. {c.refreshError}</Notice> : null}
+        {linkNotice ? <Notice>{linkNotice}</Notice> : null}
+
+        {trip ? <View style={common.card}>
+          <Eyebrow>Your active walk</Eyebrow>
+          <Text style={styles.body}>Matched Safe Walk users receive an in-app share. For someone without a match, send the private link through your phone.</Text>
+          <ActionButton title="Share link another way" secondary disabled={!!sharingId}
+            onPress={() => shareLink()} style={{ marginTop: 10 }} />
         </View> : null}
-        {settingsNeeded ? <ActionButton title="Open phone settings" secondary
-          onPress={() => { void Linking.openSettings().catch(() => setError("Couldn't open phone settings. Use your device Settings app to allow contacts access.")); }} /> : null}
-        {error ? <Notice tone="danger">{error}</Notice> : null}
-        {notice ? <Notice>{notice}</Notice> : null}
-        {contacts.length ? <>
+
+        {!c.profile && !c.loading ? <View style={common.card}>
+          <Eyebrow>Optional app matching</Eyebrow>
+          <Text style={styles.body}>To search for enrolled Safe Walk users, verify your own email once. This sends a code to you only; it does not email your contacts. Walk planning and private-link sharing stay account-free.</Text>
+          <ActionButton title="Enable app contact matching" onPress={c.enroll} loading={c.busy} style={{ marginTop: 10 }} />
+        </View> : null}
+
+        {c.profile && !verified ? <View style={common.card}>
+          <Eyebrow>Verify your email</Eyebrow>
+          <Text style={styles.body}>This verifies your device for private contact matching. The verification code goes to your email; no code is sent to the contacts you select.</Text>
+          {!c.challenge ? <>
+            <TextInput accessibilityLabel="Your email address" autoCapitalize="none" autoCorrect={false}
+              keyboardType="email-address" value={identifier} onChangeText={setIdentifier}
+              placeholder="you@example.com" placeholderTextColor={palette.muted} style={styles.input} />
+            <ActionButton title="Send verification code" onPress={() => c.begin("email", identifier, country)}
+              loading={c.busy} disabled={!identifier.trim() || !c.config?.emailVerificationAvailable} />
+            {!c.config?.emailVerificationAvailable
+              ? <Text style={styles.small}>Email verification isn't configured. You can still share a private link.</Text>
+              : null}
+          </> : <>
+            <TextInput accessibilityLabel="Six-digit verification code" keyboardType="number-pad"
+              autoComplete="one-time-code" maxLength={6} value={code} onChangeText={setCode}
+              placeholder="Six-digit code" placeholderTextColor={palette.muted} style={styles.input} />
+            <ActionButton title="Verify code" onPress={() => c.confirm(code)} loading={c.busy}
+              disabled={!/^\d{6}$/.test(code)} />
+            <ActionButton title="Request a new code" secondary onPress={() => c.begin("email", identifier, country)}
+              disabled={c.busy} style={{ marginTop: 8 }} />
+            <ActionButton title="Use a different email" secondary
+              onPress={() => { c.cancelVerification(); setCode(""); }} disabled={c.busy} style={{ marginTop: 8 }} />
+          </>}
+        </View> : null}
+
+        {verified ? <>
           <View style={common.card}>
-            <Eyebrow>{`Phone contacts · ${contacts.length}`}</Eyebrow>
-            <TextInput accessibilityLabel="Search phone contacts" value={search} onChangeText={setSearch}
-              placeholder="Search by name or phone" placeholderTextColor={palette.muted} style={styles.input} />
+            <Eyebrow>Find opted-in Safe Walk users</Eyebrow>
+            <Text style={styles.body}>When you sync, names and raw contact details stay on this phone. Phone and email identifiers are normalized and hashed locally; only the hashes are sent to check for verified, discoverable Safe Walk devices.</Text>
+            <Text style={styles.small}>Country for phone numbers without a + prefix:</Text>
+            <TextInput accessibilityLabel="Contact phone-number country code" maxLength={2}
+              autoCapitalize="characters" value={country} onChangeText={value => setCountry(value.toUpperCase())}
+              style={[styles.input, { width: 90 }]} />
+            <ActionButton title={c.busy ? "Syncing contacts…" : c.contacts.length ? "Sync contacts again" : "Sync my phone contacts"}
+              onPress={() => c.sync(country)} loading={c.busy} disabled={c.busy} />
           </View>
-          {!visibleContacts.length ? <Text style={styles.small}>No contacts match that search.</Text> : null}
+          {c.contacts.length ? <View style={common.card}>
+            <Eyebrow>{`Phone contacts · ${c.contacts.length}`}</Eyebrow>
+            <TextInput accessibilityLabel="Search synced contacts" value={search} onChangeText={setSearch}
+              placeholder="Search by name, phone, or email" placeholderTextColor={palette.muted} style={styles.input} />
+            {contacts.map(contact => <ContactRow key={contact.id} contact={contact} trip={trip}
+              busy={c.busy || !!sharingId} sharingId={sharingId} onShareInApp={() => trip && c.share(trip, contact)}
+              onShareLink={phone => shareLink(phone, `${contact.id}:${phone ?? "share"}`)} />)}
+            {!contacts.length ? <Text style={styles.small}>No contacts match that search.</Text> : null}
+          </View> : <View style={common.card}>
+            <Eyebrow>Phone contacts</Eyebrow>
+            <Text style={styles.body}>Sync your phone's accessible contacts to find opted-in app users. Contacts without a match can still receive a private link.</Text>
+          </View>}
         </> : null}
-      </View>}
-      renderItem={({ item }) => (
-        <View style={[common.card, styles.contact]}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.name}>{item.name}</Text>
-            <Text style={styles.small}>{item.label} · {item.number}</Text>
+
+        {c.profile ? <>
+          <View style={common.card}>
+            <Eyebrow>Shared with you</Eyebrow>
+            <Text style={styles.body}>New app shares appear here automatically. Tap one to open its live tracking preview. The inbox refreshes while this screen is open.</Text>
+            {c.inbox.length ? c.inbox.map(item => <InboxRow key={item.shareCode} item={item} onPress={() => openTrip(item)} />)
+              : <Text style={styles.small}>No unexpired trips have been shared with this device.</Text>}
           </View>
-          <ActionButton title={sharingId === item.id ? "Opening…" : "Message link"}
-            secondary disabled={!trip || busy || !!sharingId}
-            onPress={() => messageLink(item)} />
-        </View>
-      )}
-    />
+          <View style={common.card}>
+            <Eyebrow>Device settings</Eyebrow>
+            {verified ? <View style={styles.setting}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.name}>Discoverable to app contacts</Text>
+                <Text style={styles.small}>Turn this off to stop appearing in new contact searches.</Text>
+              </View>
+              <Switch accessibilityLabel="Discoverable to app contacts" value={c.profile.discoverable}
+                disabled={c.busy} onValueChange={c.discoverable} />
+            </View> : null}
+            <Text style={styles.body}>Push notifications: {c.profile.notificationsEnabled ? "enabled on this device" : "not enabled"}. Inbox shares still work without push.</Text>
+            <ActionButton title={c.profile.notificationsEnabled ? "Refresh notification registration" : "Enable app notifications"}
+              secondary loading={c.busy} disabled={c.busy} onPress={c.notifications} />
+            <Text style={styles.small}>Push delivery is best-effort and requires a native build and notification permission. Expo Go does not support remote push notifications.</Text>
+            <ActionButton title="Remove app contact enrollment" danger secondary onPress={removeEnrollment}
+              disabled={c.busy} style={{ marginTop: 15 }} />
+          </View>
+        </> : null}
+      </ScrollView>
+    </View>
   );
+}
+
+function ContactRow({ contact, trip, busy, sharingId, onShareInApp, onShareLink }: {
+  contact: DeviceContact; trip: TripCredentials | null; busy: boolean; sharingId: string;
+  onShareInApp: () => void; onShareLink: (phone?: string) => void;
+}) {
+  const matched = contact.installationIds.length > 0;
+  return <View style={styles.contact}>
+    <View style={{ flex: 1, marginBottom: 6 }}>
+      <Text style={styles.name}>{contact.name}</Text>
+      <Text style={styles.small}>{matched
+        ? `On Safe Walk · ${contact.notificationsEnabled ? "notifications enabled" : "inbox only"}`
+        : contact.phoneNumbers?.length ? "No opted-in Safe Walk match · share a link" : "No match · share through another app"}</Text>
+      {contact.phoneNumbers?.map((phone, index) => <Text key={`${phone.number}-${index}`} style={styles.small}>
+        {phone.label} · {phone.number}
+      </Text>)}
+      {!contact.phoneNumbers?.length && contact.emails?.length ? <Text style={styles.small}>Email-only contact</Text> : null}
+    </View>
+    {trip ? matched
+      ? <View style={styles.actions}>
+        <ActionButton title="Share in Safe Walk" secondary disabled={busy} onPress={onShareInApp} />
+        <ActionButton title="Use a private link instead" secondary disabled={busy} onPress={() => onShareLink()} style={{ marginTop: 8 }} />
+      </View>
+      : contact.phoneNumbers?.length
+        ? <View style={styles.actions}>{contact.phoneNumbers.map((phone, index) => {
+          const key = `${contact.id}:${phone.number}`;
+          return <ActionButton key={key} title={sharingId === key ? "Opening…" : `Text link · ${phone.label}`}
+            secondary disabled={busy} onPress={() => onShareLink(phone.number)} style={index ? { marginTop: 8 } : undefined} />;
+        })}</View>
+        : <ActionButton title="Share private link" secondary disabled={busy}
+          onPress={() => onShareLink()} />
+      : null}
+  </View>;
+}
+
+function InboxRow({ item, onPress }: { item: ReceivedTrip; onPress: () => void }) {
+  const status = item.status === "help" ? "Help requested" : item.status === "arrived" ? "Arrived" : "Active";
+  return <Pressable accessibilityRole="button" accessibilityLabel={`Open ${status.toLowerCase()} shared trip`}
+    onPress={onPress} style={styles.inboxRow}>
+    <View style={{ flex: 1 }}>
+      <Text style={styles.name}>{item.demo ? "Demo walk" : "Shared walk"} · {status}</Text>
+      <Text style={styles.small}>ETA {new Date(item.etaAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · Tap to open live preview</Text>
+    </View>
+    <Text style={styles.back}>›</Text>
+  </Pressable>;
 }
 
 const styles = StyleSheet.create({
@@ -187,7 +244,10 @@ const styles = StyleSheet.create({
   back: { color: palette.evergreen, fontWeight: "800", padding: 10 },
   body: { color: palette.muted, fontSize: 14, lineHeight: 21, marginVertical: 7 },
   small: { color: palette.muted, fontSize: 12, lineHeight: 18, marginTop: 6 },
-  input: { backgroundColor: palette.paper, color: palette.evergreen, borderWidth: 1, borderColor: palette.line, borderRadius: 12, padding: 14, fontSize: 16, marginTop: 12 },
-  contact: { flexDirection: "row", alignItems: "center", gap: 10, padding: 14 },
+  input: { backgroundColor: palette.paper, color: palette.evergreen, borderWidth: 1, borderColor: palette.line, borderRadius: 12, padding: 14, fontSize: 16, marginVertical: 12 },
+  contact: { paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: palette.line },
   name: { color: palette.evergreen, fontWeight: "800", fontSize: 15 },
+  setting: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 15 },
+  actions: { alignSelf: "stretch" },
+  inboxRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: palette.line },
 });

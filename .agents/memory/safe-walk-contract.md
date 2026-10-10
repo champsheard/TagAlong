@@ -19,22 +19,23 @@ on arrival, help or expiry. Precise coordinates and identifiers must not enter l
 storage or services. Do not turn optional contact enrollment into mandatory login.
 
 On 2026-10-06, the user selected automatic phone/email matching rather than
-private QR pairing. On 2026-10-09, they superseded that choice for native mobile:
-use Expo Contacts locally to select a recipient and prefill a private trip link in
-the phone's message composer. Native mobile must not verify email, upload
-contacts/identifiers, or use app-to-app discovery. The browser contact flow keeps
-verified matching.
+private QR pairing. On 2026-10-09, they updated native sharing to match saved
+contacts against opted-in, verified, discoverable Safe Walk devices. They chose
+email verification for the sender's own device. A match receives an explicit
+in-app trip share, inbox entry, and best-effort push; a non-match receives a
+private link through the native messaging/share UI. Safe Walk remains account-free.
 
-**Why:** The user made separate, explicit choices for browser matching and native
-mobile link sharing; applying one platform's consent to the other changes the
-privacy model.
+**Why:** This latest choice supersedes the earlier native link-only direction.
+Sharing a live location remains a deliberate action; merely syncing a contact
+must not expose an active trip.
 
-**How to apply:** Keep native contact reads on-device, pass only the chosen
-number and active trip link to the phone composer, and let the user send it.
-Preserve an explicit way to remove any legacy native enrollment rather than
-deleting its server data automatically. Help still stops GPS and freezes the
-last-known fix; notifications are best effort, never emergency calls.
-Do not say a notification was delivered merely because it was queued.
+**How to apply:** Read names and raw contact details locally, and send only
+locally hashed phone/email identifiers for matching. The verification email goes
+to the sender, never the selected contact. Require the recipient to have opted
+in and verified an identifier; add successful shares to the recipient inbox
+without a second acceptance step. Keep the private-link path for unmatched
+contacts, keep notification delivery best-effort, and never claim delivery merely
+because a notification was queued. Preserve explicit enrollment removal.
 
 Background recipient widgets do not authorize background walker GPS collection.
 
