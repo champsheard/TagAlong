@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
-  Animated, Keyboard, KeyboardAvoidingView, PanResponder, Platform, Pressable,
+  Animated, Keyboard, KeyboardAvoidingView, Platform, Pressable,
   StyleProp, StyleSheet, View, ViewStyle, useWindowDimensions,
 } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type Props = {
@@ -24,14 +25,18 @@ export default function DraggableDrawer({ children, style, initialHeight, minHei
   const heightValue = useRef(new Animated.Value(initial)).current;
   const heightRef = useRef(initial);
   const gestureStart = useRef(initial);
+  const dragged = useRef(false);
   const keyboardSavedHeight = useRef(initial);
   const keyboardOpen = useRef(false);
   const minRef = useRef(allowedMin);
   const maxRef = useRef(allowedMax);
+  const initialRef = useRef(initial);
   const reportRef = useRef(onHeightSettled);
+  const moveToRef = useRef<(height: number, animated?: boolean) => void>(() => {});
   const [expanded, setExpanded] = useState(initial > (allowedMin + allowedMax) / 2);
   minRef.current = allowedMin;
   maxRef.current = allowedMax;
+  initialRef.current = initial;
   reportRef.current = onHeightSettled;
 
   const clamp = (height: number) => Math.max(minRef.current, Math.min(height, maxRef.current));
@@ -47,6 +52,7 @@ export default function DraggableDrawer({ children, style, initialHeight, minHei
     setExpanded(nextExpanded);
     reportRef.current?.(next);
   };
+  moveToRef.current = moveTo;
 
   useEffect(() => {
     moveTo(initialHeight);
@@ -71,27 +77,28 @@ export default function DraggableDrawer({ children, style, initialHeight, minHei
     return () => { show.remove(); hide.remove(); };
   }, []);
 
-  const responder = useMemo(() => PanResponder.create({
-    onStartShouldSetPanResponder: () => false,
-    onMoveShouldSetPanResponder: (_event, gesture) =>
-      Math.abs(gesture.dy) > 7 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
-    onPanResponderGrant: () => { gestureStart.current = heightRef.current; },
-    onPanResponderMove: (_event, gesture) => {
-      const next = clamp(gestureStart.current - gesture.dy);
+  const panGesture = useMemo(() => Gesture.Pan()
+    .activeOffsetY([-6, 6])
+    .failOffsetX([-28, 28])
+    .runOnJS(true)
+    .onBegin(() => {
+      gestureStart.current = heightRef.current;
+      dragged.current = false;
+    })
+    .onUpdate(event => {
+      if (Math.abs(event.translationY) > 6) dragged.current = true;
+      const next = clamp(gestureStart.current - event.translationY);
       heightRef.current = next;
       heightValue.setValue(next);
-    },
-    onPanResponderRelease: (_event, gesture) => {
-      const midpoint = (minRef.current + maxRef.current) / 2;
-      const target = gesture.vy < -0.45 || gesture.dy < -52
-        ? maxRef.current
-        : gesture.vy > 0.45 || gesture.dy > 52
-          ? minRef.current
-          : heightRef.current >= midpoint ? maxRef.current : minRef.current;
-      moveTo(target);
-    },
-    onPanResponderTerminate: () => moveTo(heightRef.current),
-  }), []);
+    })
+    .onEnd(event => {
+      if (!dragged.current) return;
+      const stops = [...new Set([minRef.current, clamp(initialRef.current), maxRef.current])].sort((a, b) => a - b);
+      const projected = clamp(heightRef.current - event.velocityY * 0.16);
+      const target = stops.reduce((closest, stop) =>
+        Math.abs(stop - projected) < Math.abs(closest - projected) ? stop : closest, stops[0]);
+      moveToRef.current(target);
+    }), []);
 
   function toggle() {
     const midpoint = (minRef.current + maxRef.current) / 2;
@@ -105,17 +112,21 @@ export default function DraggableDrawer({ children, style, initialHeight, minHei
     >
       <View style={styles.dock}>
         <Animated.View style={[styles.sheet, style, { height: heightValue, maxHeight: allowedMax }]}>
-          <Pressable
-            {...responder.panHandlers}
-            accessibilityRole="button"
-            accessibilityLabel={expanded ? "Collapse walk drawer" : "Expand walk drawer"}
-            accessibilityHint="Swipe up or down, or press to change the drawer size."
-            accessibilityState={{ expanded }}
-            onPress={toggle}
-            style={styles.handle}
-          >
-            <View style={styles.grabber} />
-          </Pressable>
+          <GestureDetector gesture={panGesture} touchAction="none">
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={expanded ? "Collapse walk drawer" : "Expand walk drawer"}
+              accessibilityHint="Drag the handle up or down, or press to change the drawer size."
+              accessibilityState={{ expanded }}
+              onPress={() => {
+                if (dragged.current) { dragged.current = false; return; }
+                toggle();
+              }}
+              style={styles.handle}
+            >
+              <View style={styles.grabber} />
+            </Pressable>
+          </GestureDetector>
           <View style={styles.content}>{children}</View>
         </Animated.View>
       </View>
@@ -126,7 +137,7 @@ export default function DraggableDrawer({ children, style, initialHeight, minHei
 const styles = StyleSheet.create({
   dock: { flex: 1, justifyContent: "flex-end", alignItems: "center", paddingHorizontal: 8, zIndex: 2, pointerEvents: "box-none" },
   sheet: { width: "100%", maxWidth: 600, overflow: "hidden" },
-  handle: { width: "100%", minHeight: 36, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  handle: { width: "100%", minHeight: 48, alignItems: "center", justifyContent: "center", flexShrink: 0 },
   grabber: { width: 38, height: 4, borderRadius: 3, backgroundColor: "#C7CEBC" },
   content: { flex: 1, minHeight: 0 },
 });

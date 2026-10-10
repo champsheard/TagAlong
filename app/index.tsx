@@ -17,6 +17,7 @@ export default function Index() {
   const walk = useWalk();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
+  const [showArrivalConfirm, setShowArrivalConfirm] = useState(false);
   const [showHelpConfirm, setShowHelpConfirm] = useState(false);
   const [searchTarget, setSearchTarget] = useState<"from" | "to">("to");
   const [focusedPlace, setFocusedPlace] = useState<{ lat: number; lng: number } | null>(null);
@@ -185,17 +186,17 @@ export default function Index() {
             {walk.demo ? <View style={{ marginTop: 12 }}><Notice tone="warning">Demo walk · Location movement is simulated. Keep this screen open.</Notice></View> : null}
             {walk.error ? <View style={{ marginTop: 12 }}><Notice tone="danger">{walk.error}</Notice></View> : null}
             {!!walk.sendError ? <View style={{ marginTop: 12 }}><Notice tone="warning">Connection issue · {walk.sendError} Your contact may see an older location.</Notice></View> : null}
-            <View style={s.shareCard}>
-              <Eyebrow>PRIVATE TRACKING LINK</Eyebrow>
-              <Text style={s.body}>Send this to one trusted contact. Anyone with the link can view your trip.</Text>
-              <Text selectable style={s.url}>{walk.shareUrl}</Text>
-              <ActionButton title="Share link" onPress={walk.shareTrip} style={{ marginTop: 12 }} />
-              {!!walk.notice && <Text style={s.noticeText}>{walk.notice}</Text>}
-            </View>
-            <Pressable accessibilityRole="button" onPress={() => router.push("/contacts")} style={s.contactsDuringWalk}><Text style={s.contactsDuringText}>{Platform.OS === "web" ? "Choose an app contact" : "Choose a phone contact"}</Text><Text style={s.contactsArrow}>›</Text></Pressable>
-            <ActionButton title="I’ve arrived" onPress={() => walk.endTrip("arrived")} style={{ marginTop: 14 }} />
+            {!!walk.notice ? <View style={{ marginTop: 12 }}><Notice>{walk.notice}</Notice></View> : null}
+            <ActionButton title="I’ve arrived" onPress={() => setShowArrivalConfirm(true)} style={{ marginTop: 14 }} />
             <ActionButton title="Need help" onPress={() => setShowHelpConfirm(true)} danger secondary style={{ marginTop: 9 }} />
             <Text style={s.centerNote}>Need urgent help? Call 911. Safe Walk does not contact emergency services.</Text>
+            <View style={s.shareCard}>
+              <Eyebrow>OTHER WAYS TO SHARE</Eyebrow>
+              <Text style={s.body}>Use a private link for someone without an app match. Anyone holding the link can view your trip.</Text>
+              <Text selectable style={s.url}>{walk.shareUrl}</Text>
+              <ActionButton title="Share link" onPress={walk.shareTrip} style={{ marginTop: 12 }} />
+            </View>
+            <Pressable accessibilityRole="button" onPress={() => router.push("/contacts")} style={s.contactsDuringWalk}><Text style={s.contactsDuringText}>{Platform.OS === "web" ? "Choose an app contact" : "Choose a phone contact"}</Text><Text style={s.contactsArrow}>›</Text></Pressable>
           </> : null}
 
           {walk.phase === "finished" ? <>
@@ -210,6 +211,15 @@ export default function Index() {
           </> : null}
         </ScrollView>
     </DraggableDrawer>
+
+    <Modal visible={showArrivalConfirm} transparent animationType="fade" onRequestClose={() => setShowArrivalConfirm(false)}>
+      <View style={s.modalBackdrop}><View style={s.modalCard}>
+        <Eyebrow>PLEASE CONFIRM</Eyebrow><Text style={s.modalTitle}>Have you arrived?</Text>
+        <Text style={s.body}>Confirming ends this walk, stops live location updates, and marks you as arrived for everyone following it. If you are still walking, keep the trip active.</Text>
+        <ActionButton title="Yes, I’ve arrived" onPress={() => { setShowArrivalConfirm(false); walk.endTrip("arrived"); }} style={{ marginTop: 18 }} />
+        <ActionButton title="Keep walking" secondary onPress={() => setShowArrivalConfirm(false)} style={{ marginTop: 9 }} />
+      </View></View>
+    </Modal>
 
     <Modal visible={showHelpConfirm} transparent animationType="fade" onRequestClose={() => setShowHelpConfirm(false)}>
       <View style={s.modalBackdrop}><View style={s.modalCard}>
