@@ -4,6 +4,10 @@ import * as Location from "expo-location";
 import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import { autoShareTrip } from "../lib/autoShare";
 import { api, ApiError, shareTripLink, tripLink } from "../lib/api";
+import {
+  requestBackgroundLocationPermission, startBackgroundLocationUpdates, stopBackgroundLocationUpdates,
+  type BackgroundPermissionState,
+} from "../lib/backgroundLocation";
 import { readTrip, saveTrip } from "../lib/tripStorage";
 import { asPoint, pointAlong } from "../shared/geo";
 import type { Place, Position, RouteOption, RouteResult, TripCredentials } from "../shared/types";
@@ -42,6 +46,9 @@ export function useWalk() {
   const [now, setNow] = useState(Date.now());
   const [finishedStatus, setFinishedStatus] = useState<"arrived" | "help" | "expired">("arrived");
   const [foreground, setForeground] = useState(true);
+  const [backgroundEnabled, setBackgroundEnabled] = useState(false);
+  const [backgroundNotice, setBackgroundNotice] = useState("");
+  const previousForeground = useRef(true);
   const latest = useRef<Position | null>(null);
   const stopping = useRef(false);
   const autoShareAttempt = useRef(0);
@@ -60,21 +67,80 @@ export function useWalk() {
     (async () => {
       try {
         const saved = await readTrip();
-        if (!saved || saved.expiresAt <= Date.now()) { await saveTrip(null); return; }
+        if (!saved || saved.expiresAt <= Date.now()) {
+          await saveTrip(null);
+          await stopBackgroundLocationUpdates();
+          return;
+        }
         const data = await api.track(saved.shareCode);
         if (!mounted) return;
-        if (data.status !== "active") { await saveTrip(null); setFinishedStatus(data.status); setPhase("finished"); return; }
+        if (data.status !== "active") {
+          await saveTrip(null);
+          await stopBackgroundLocationUpdates();
+          setFinishedStatus(data.status); setPhase("finished"); return;
+        }
         const route: RouteOption = { id: "restored", geometry: data.route, distanceMeters: 0, durationSeconds: Math.max(1, (data.etaAt - data.startedAt) / 1000), label: saved.routeLabel ?? "Fastest", lightScore: null, lightBreakdown: { lampsPer100m: 0, activityCount: 0, litShare: 0, limitedData: true, unavailable: true, reason: "Resumed trip" } };
         setTrip({ ...saved, route }); setDemo(saved.demo);
-        if (saved.pendingEnd) { stopping.current = true; setFinishedStatus(saved.pendingEnd); setPhase("finished"); }
-        else { setPosition(data.lastLocation); latest.current = data.lastLocation; setPhase("walking"); }
+        if (saved.pendingEnd) {
+          stopping.current = true;
+          await stopBackgroundLocationUpdates();
+          setBackgroundEnabled(false);
+          setFinishedStatus(saved.pendingEnd); setPhase("finished");
+        } else {
+          setPosition(data.lastLocation); latest.current = data.lastLocation; setPhase("walking");
+          if (!saved.demo && Platform.OS !== "web") {
+            let enabled = false;
+            try {
+              enabled = await startBackgroundLocationUpdates();
+              if (enabled) await saveTrip(saved, true);
+            } catch {}
+            if (mounted) {
+              setBackgroundEnabled(enabled);
+              setBackgroundNotice(enabled ? "" : "Background location isn't active. This walk updates only while Safe Walk is open.");
+            }
+          }
+        }
       } catch (e) {
-        if (e instanceof ApiError && e.status === 404) await saveTrip(null);
+        if (e instanceof ApiError && e.status === 404) {
+          await saveTrip(null);
+          await stopBackgroundLocationUpdates();
+        }
         else if (mounted) setError(`Couldn't resume your trip: ${message(e)} Reload when connected; sharing is paused.`);
       } finally { if (mounted) setRestoring(false); }
     })();
     return () => { mounted = false; };
   }, []);
+  useEffect(() => {
+    const resumed = foreground && !previousForeground.current;
+    previousForeground.current = foreground;
+    if (!resumed || !trip || phase !== "walking" || trip.pendingEnd || trip.demo || Platform.OS === "web") return;
+    let alive = true;
+    (async () => {
+      try {
+        const enabled = await startBackgroundLocationUpdates();
+        if (!alive) return;
+        if (enabled) {
+          try { await saveTrip(credentials(trip), true); }
+          catch {
+            await stopBackgroundLocationUpdates();
+            if (alive) {
+              setBackgroundEnabled(false);
+              setBackgroundNotice("Background location couldn't securely resume. This walk updates only while Safe Walk is open.");
+            }
+            return;
+          }
+        }
+        setBackgroundEnabled(enabled);
+        setBackgroundNotice(enabled ? "" : "Background location isn't active. This walk updates only while Safe Walk is open.");
+      } catch {
+        if (alive) {
+          setBackgroundEnabled(false);
+          setBackgroundNotice("Background location couldn't resume. This walk updates only while Safe Walk is open.");
+        }
+      }
+    })();
+    return () => { alive = false; };
+  }, [foreground, trip, phase]);
   useEffect(() => {
     let mounted = true;
     mapPosition().then(p => { if (mounted && p) setMapLocation(p); }).catch(() => {});
@@ -106,7 +172,8 @@ export function useWalk() {
     const tick = async () => {
       if (!alive || stopping.current || inFlight) return;
       if (trip.expiresAt <= Date.now()) {
-        stopping.current = true; setFinishedStatus("expired"); setPhase("finished"); await saveTrip(null); return;
+        stopping.current = true; setFinishedStatus("expired"); setPhase("finished");
+        await stopBackgroundLocationUpdates(); setBackgroundEnabled(false); await saveTrip(null); return;
       }
       if (trip.demo) {
         const p = { ...pointAlong(trip.route.geometry, initialFraction + (Date.now() - begin) / 90000), accuracy: 5, timestamp: Date.now() };
@@ -131,7 +198,8 @@ export function useWalk() {
         if (alive) setSendError("");
       } catch (e) {
         if (e instanceof ApiError && (e.status === 404 || e.status === 409)) {
-          stopping.current = true; setPhase("finished"); setFinishedStatus("expired"); await saveTrip(null);
+          stopping.current = true; setPhase("finished"); setFinishedStatus("expired");
+          await stopBackgroundLocationUpdates(); setBackgroundEnabled(false); await saveTrip(null);
         } else if (alive) setSendError(message(e));
       } finally { inFlight = false; }
     };
@@ -149,7 +217,10 @@ export function useWalk() {
         await api.end(trip, trip.pendingEnd!); await saveTrip(null);
         if (alive) { setTrip(null); setSendError(""); }
       } catch (e) {
-        if (e instanceof ApiError && e.status === 404) { await saveTrip(null); if (alive) setTrip(null); }
+        if (e instanceof ApiError && e.status === 404) {
+          await saveTrip(null); await stopBackgroundLocationUpdates();
+          if (alive) { setTrip(null); setBackgroundEnabled(false); }
+        }
         else if (alive) setSendError(`Location sharing has stopped on this device. Your contact's status update is waiting for a connection. ${message(e)}`);
       } finally { busy = false; }
     };
@@ -184,19 +255,36 @@ export function useWalk() {
     if (!selectedRoute || busy) return;
     const shareAttempt = ++autoShareAttempt.current;
     setBusy(true); setError(""); setSendError(""); stopping.current = false;
+    setBackgroundEnabled(false); setBackgroundNotice("");
     try {
       const p = demo ? { ...asPoint(selectedRoute.geometry.coordinates[0]), accuracy: 5, timestamp: Date.now() } : await currentPosition();
+      let backgroundPermission: BackgroundPermissionState = "unavailable";
+      if (!demo && Platform.OS !== "web") {
+        backgroundPermission = await requestBackgroundLocationPermission();
+      }
       if (!demo) setMapLocation(p);
       latest.current = p; setPosition(p);
       const created = await api.createTrip(selectedRoute.geometry, demo ? 90 : selectedRoute.durationSeconds, demo);
       const next: ActiveTrip = { ...created, demo, routeLabel: selectedRoute.label, route: selectedRoute };
-      try { await saveTrip(credentials(next)); }
+      try { await saveTrip(credentials(next), backgroundPermission === "granted"); }
       catch {
         // Never leave an unmanageable active trip if credential storage fails.
         await api.end(next, "arrived");
         throw new Error("Your device couldn't securely save this trip. Enable storage and try again.");
       }
       setTrip(next); setPhase("walking"); setBusy(false);
+      if (!demo && Platform.OS !== "web") {
+        let enabled = false;
+        if (backgroundPermission === "granted") {
+          try { enabled = await startBackgroundLocationUpdates(); } catch {}
+        }
+        setBackgroundEnabled(enabled);
+        setBackgroundNotice(enabled ? "" : backgroundPermission === "denied"
+          ? "Background location wasn't allowed. This walk updates only while Safe Walk is open; allow Always or Allow all the time in Settings to resume background updates."
+          : backgroundPermission === "unavailable"
+            ? "Background location isn't available in this app build. This walk updates only while Safe Walk is open."
+            : "Background location couldn't start. This walk updates only while Safe Walk is open.");
+      }
       try { await api.location(next, p); } catch (e) { setSendError(message(e)); }
       // Contact matching can take several requests; it must not block ending the walk.
       const showAutoShareNotice = (text: string) => {
@@ -244,6 +332,8 @@ export function useWalk() {
     setFinishedStatus(status); setPhase("finished");
     const next = { ...trip, pendingEnd: status };
     try { await saveTrip(credentials(next)); } catch { setSendError("Device storage is unavailable. Keep this screen open until the status update is sent."); }
+    await stopBackgroundLocationUpdates();
+    setBackgroundEnabled(false);
     setTrip(next);
   }
   async function shareTrip() {
@@ -253,10 +343,12 @@ export function useWalk() {
   function reset() {
     if (trip?.pendingEnd) return;
     autoShareAttempt.current += 1;
+    void stopBackgroundLocationUpdates();
+    setBackgroundEnabled(false); setBackgroundNotice("");
     stopping.current = false; setTrip(null); setResult(null); setPhase("plan"); setError(""); setNotice(""); setSendError(""); setDemo(false);
   }
   return {
-    phase, from, to, setFrom, setTo, demo, setDemo, result, selectedRoute, foreground,
+    phase, from, to, setFrom, setTo, demo, setDemo, result, selectedRoute, foreground, backgroundEnabled, backgroundNotice,
     mapLocation,
     selectRoute: setSelectedId, trip, position, busy, restoring, error, notice, sendError, now, routingAvailable, finishedStatus,
     locateStart, loadDemo, planRoutes, startTrip, endTrip, shareTrip, reset,

@@ -40,13 +40,21 @@ link only when the user chooses to send one. Keep push delivery best-effort and
 never claim delivery merely because a notification was queued. Preserve
 enrollment removal.
 
-Background recipient widgets do not authorize background walker GPS collection.
+The user approved background location for all real active walks after a one-time
+OS background-permission grant. If permission is denied or unavailable, keep
+updates foreground-only. Never collect background location for demos or after
+arrival, help, or expiry.
 
-**Why:** The current expansion is contact matching and recipient tracking, not
-a change to the foreground-only walking contract.
+**Why:** The user explicitly requested background updates for shared walks and
+chose automatic use after granting the system permission once. A locked phone
+also needs narrowly scoped access to the trip token so the background task can
+authenticate location updates.
 
-**How to apply:** Keep the foreground requirement clear even when recipient
-widgets support background status updates.
+**How to apply:** Explain the behavior before requesting permission, request it
+only after foreground permission and walk consent, stop the location task when
+sharing ends, and keep exact coordinates out of persistent storage and logs.
+Only small trip credentials may use after-first-unlock Keychain access, and only
+when background permission is granted.
 
 Before a walk, foreground location may center the map. An explicit nearby-place
 search may send the position to Safe Walk for in-memory result ranking; pass only

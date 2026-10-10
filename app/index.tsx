@@ -171,7 +171,9 @@ export default function Index() {
               <View style={s.consentRule} />
               <Text style={s.consentLine}>Anyone holding the private link can view it. Share it only with someone you trust.</Text>
               {Platform.OS !== "web" ? <Text style={s.consentLine}>Safe Walk will not ask for Contacts access when a walk starts. If access is off, there is no automatic share. Contacts without an app match are not messaged. Push is best-effort; turning auto-share off affects future walks only.</Text> : null}
-              <Text style={s.consentLine}>Sharing is active only while your trip is active. Location updates while Safe Walk is open in the foreground.</Text>
+              <Text style={s.consentLine}>{Platform.OS === "web"
+                ? "Sharing is active only while the trip is active. On the web, location updates work only while this page is open."
+                : "Sharing is active only while a real trip is active. After you allow background location once, real walks continue updating while the app is in the background. If permission is declined or unavailable, updates run only while the app is open. Android shows an ongoing location notification. Background location needs a development build; Expo Go does not support it on Android and supports it only in the iOS simulator."}</Text>
               <Text style={s.consentLine}>Safe Walk is not a safety guarantee and does not replace calling 911 in an emergency.</Text>
             </View>
             {walk.demo ? <View style={{ marginTop: 14 }}><Notice tone="warning">{walk.result?.demo ? "This is a simulated trip. The moving location and lighting scores are not real." : "Demo walk simulates your location along the chosen route. Lighting remains an estimate."}</Notice></View> : null}
@@ -181,11 +183,12 @@ export default function Index() {
           </> : null}
 
           {walk.phase === "walking" && walk.trip ? <>
-            <View style={s.phaseTop}><View style={{ flex: 1 }}><Eyebrow>YOUR WALK IS LIVE</Eyebrow><Text style={s.panelTitle}>You’re on your way.</Text></View><View style={s.livePill}><View style={s.liveDot} /><Text style={s.liveText}>{walk.sendError || !walk.foreground ? "PAUSED" : "SHARING ON"}</Text></View></View>
+            <View style={s.phaseTop}><View style={{ flex: 1 }}><Eyebrow>YOUR WALK IS LIVE</Eyebrow><Text style={s.panelTitle}>You’re on your way.</Text></View><View style={s.livePill}><View style={s.liveDot} /><Text style={s.liveText}>{walk.sendError || (!walk.foreground && !walk.backgroundEnabled) ? "PAUSED" : "SHARING ON"}</Text></View></View>
             <View style={s.walkStats}><View><Text style={s.statLarge}>{Math.max(0, Math.ceil((walk.trip.etaAt - walk.now) / 60000))}</Text><Text style={s.metricLabel}>MIN TO ARRIVE</Text></View><View style={s.metricDivider} /><View style={{ flex: 1 }}><Text numberOfLines={1} style={s.statRoute}>{walk.trip.route.label}</Text><Text style={s.metricLabel}>CHOSEN ROUTE</Text></View></View>
             {walk.demo ? <View style={{ marginTop: 12 }}><Notice tone="warning">Demo walk · Location movement is simulated. Keep this screen open.</Notice></View> : null}
             {walk.error ? <View style={{ marginTop: 12 }}><Notice tone="danger">{walk.error}</Notice></View> : null}
             {!!walk.sendError ? <View style={{ marginTop: 12 }}><Notice tone="warning">Connection issue · {walk.sendError} Your contact may see an older location.</Notice></View> : null}
+            {!!walk.backgroundNotice ? <View style={{ marginTop: 12 }}><Notice tone="warning">{walk.backgroundNotice}</Notice></View> : null}
             {!!walk.notice ? <View style={{ marginTop: 12 }}><Notice>{walk.notice}</Notice></View> : null}
             <ActionButton title="I’ve arrived" onPress={() => setShowArrivalConfirm(true)} style={{ marginTop: 14 }} />
             <ActionButton title="Need help" onPress={() => setShowHelpConfirm(true)} danger secondary style={{ marginTop: 9 }} />
