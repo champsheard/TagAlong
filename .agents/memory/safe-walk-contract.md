@@ -66,3 +66,17 @@ existing trip-sharing or public-geocoder privacy contract.
 
 **How to apply:** Request foreground permission for map focus, send location only
 on a deliberate search, and keep the exact position out of caches and logs.
+
+Post-arrival feedback is optional and sent only after an explicit submit action.
+Keep it anonymous: do not store account identity, precise coordinates, or the
+private trip link. The user approved 90-day retention and wants the form to
+disclose that entered street names can reveal where someone walked. Ask for a
+1–5 route rating first, then optional user-entered street/block lighting ratings
+and notes. “Plan another walk” must remain available without sending feedback.
+
+**Why:** The user chose anonymous feedback to Safe Walk with bounded retention,
+and street-level reports can reveal sensitive location context.
+
+**How to apply:** Validate and rate-limit feedback server-side. Use entered street
+or block descriptions because the route API does not provide street names.
+Automatically delete reports after 90 days and never log sensitive fields.

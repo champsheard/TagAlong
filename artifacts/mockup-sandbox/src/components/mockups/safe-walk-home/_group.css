@@ -1,0 +1,17 @@
+:root {
+  --sw-evergreen: #193c32;
+  --sw-evergreen-deep: #122f28;
+  --sw-oat: #f2f0e8;
+  --sw-paper: #fbfaf5;
+  --sw-citron: #b8ce73;
+  --sw-citron-dark: #6a7f3e;
+  --sw-muted: #53665a;
+  --sw-line: #d7d9cb;
+  --sw-pale-green: #e5e9da;
+  --sw-amber: #82500b;
+  --sw-red: #8c3026;
+}
+
+* {
+  box-sizing: border-box;
+}

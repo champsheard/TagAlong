@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { api } from "../lib/api";
 import type { Place, Point } from "../shared/types";
 import { palette } from "../constants/theme";
@@ -22,6 +22,7 @@ export default function AddressSearch({ label, placeholder, value, onSelect, onC
   }, [value?.label]);
   useEffect(() => () => { requestId.current++; }, []);
   async function search() {
+    Keyboard.dismiss();
     const q = query.trim();
     if (q.length < 3 || q.length > 160) { setError("Enter an address using 3–160 characters."); return; }
     const id = ++requestId.current;

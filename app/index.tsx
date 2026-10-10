@@ -8,6 +8,7 @@ import AddressSearch from "../components/AddressSearch";
 import DraggableDrawer from "../components/DraggableDrawer";
 import { ActionButton, Eyebrow, Notice, SectionTitle } from "../components/WalkUI";
 import { common, palette } from "../constants/theme";
+import { useContacts } from "../hooks/useContacts";
 
 const formatMinutes = (seconds: number) => Math.max(1, Math.round(seconds / 60));
 const routeColors = { fastest: "#87977F", selected: "#567236" };
@@ -15,11 +16,13 @@ const routeColors = { fastest: "#87977F", selected: "#567236" };
 export default function Index() {
   const router = useRouter();
   const walk = useWalk();
+  const contacts = useContacts();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
+  const [showStartConfirm, setShowStartConfirm] = useState(false);
   const [showArrivalConfirm, setShowArrivalConfirm] = useState(false);
   const [showHelpConfirm, setShowHelpConfirm] = useState(false);
-  const [searchTarget, setSearchTarget] = useState<"from" | "to">("to");
+  const [showStartSearch, setShowStartSearch] = useState(false);
   const [focusedPlace, setFocusedPlace] = useState<{ lat: number; lng: number } | null>(null);
   const [actualPanelHeight, setActualPanelHeight] = useState(height * 0.58);
   const mapRoutes = useMemo(() => (walk.phase === "walking" && walk.trip ? [walk.trip.route] : walk.result?.routes ?? []).map(route => ({
@@ -29,6 +32,11 @@ export default function Index() {
     ...(walk.from ? [{ lat: walk.from.lat, lng: walk.from.lng, label: "Start" }] : []),
     ...(walk.to ? [{ lat: walk.to.lat, lng: walk.to.lng, label: "Destination" }] : []),
   ], [walk.from, walk.to]);
+  const activeSharedTrips = useMemo(
+    () => contacts.inbox.filter(trip => trip.status === "active" && trip.expiresAt > walk.now),
+    [contacts.inbox, walk.now],
+  );
+  const visibleSharedTrips = activeSharedTrips.slice(0, 2);
   const firstCoord = (walk.selectedRoute ?? walk.trip?.route)?.geometry.coordinates[0];
   const mapCenter = useMemo(() => {
     const point = walk.phase === "walking"
@@ -39,7 +47,7 @@ export default function Index() {
     return resolvedPoint ? { lat: resolvedPoint.lat, lng: resolvedPoint.lng } : { lat: 37.7749, lng: -122.4194 };
   }, [walk.position?.lat, walk.position?.lng, walk.mapLocation?.lat, walk.mapLocation?.lng, walk.phase, walk.from?.lat, walk.from?.lng, walk.to?.lat, walk.to?.lng, focusedPlace?.lat, focusedPlace?.lng, firstCoord?.[0], firstCoord?.[1]]);
   const panelHeight = walk.phase === "walking" ? height * 0.44
-    : walk.phase === "routes" || walk.phase === "consent" ? height * 0.64
+    : walk.phase === "routes" ? height * 0.64
       : walk.phase === "finished" ? height * 0.52 : height * 0.58;
   const route = walk.selectedRoute;
   useEffect(() => { setActualPanelHeight(panelHeight); }, [panelHeight]);
@@ -82,29 +90,59 @@ export default function Index() {
         >
           {walk.phase === "plan" ? <>
             <View style={s.planHeading}>
-              <View style={{ flex: 1 }}><Eyebrow>PLAN A WALK</Eyebrow><Text style={s.panelTitle}>Where to tonight?</Text></View>
+              <View style={{ flex: 1 }}><Eyebrow>PLAN A WALK</Eyebrow><Text style={s.panelTitle}>Where are you headed?</Text></View>
               <View style={s.mapKey}><View style={s.mapKeyDot} /><Text style={s.mapKeyText}>MAP</Text></View>
             </View>
-            <Text style={s.panelSubtitle}>Search a place to put it on the map. We’ll compare the routes.</Text>
+            <Text style={s.panelSubtitle}>Choose a destination and compare walking routes.</Text>
             {walk.routingAvailable === false ? <Notice tone="warning">Route planning is not configured on this server yet. Address search still works; try a Demo walk to explore the experience.</Notice> : null}
-            <View style={s.searchTabs}>
-              <Pressable accessibilityRole="button" onPress={() => setSearchTarget("from")} style={[s.searchTab, searchTarget === "from" && s.searchTabActive]}>
-                <View style={[s.tabDot, s.startDot]} /><Text style={[s.searchTabText, searchTarget === "from" && s.searchTabTextActive]}>Start</Text>
-                <Text numberOfLines={1} style={s.tabSelection}>{walk.from?.label ?? "Current location"}</Text>
-              </Pressable>
-              <Pressable accessibilityRole="button" onPress={() => setSearchTarget("to")} style={[s.searchTab, searchTarget === "to" && s.searchTabActive]}>
-                <View style={[s.tabDot, s.destinationDot]} /><Text style={[s.searchTabText, searchTarget === "to" && s.searchTabTextActive]}>Destination</Text>
-                <Text numberOfLines={1} style={s.tabSelection}>{walk.to?.label ?? "Add a place"}</Text>
+            {!contacts.loading && <View style={s.sharedPreview}>
+              <View style={s.sharedPreviewTop}>
+                <Eyebrow>SHARED WALKS</Eyebrow>
+                <Text style={s.sharedCount}>{contacts.error ? "Unavailable" : activeSharedTrips.length ? `${activeSharedTrips.length} active` : "No active walks"}</Text>
+              </View>
+              {contacts.error ? <Text style={s.sharedEmpty}>Shared walks couldn’t be loaded. Check your connection.</Text> : null}
+              {visibleSharedTrips.length
+                ? visibleSharedTrips.map((trip, index) => {
+                  const minutes = Math.max(0, Math.ceil((trip.etaAt - walk.now) / 60000));
+                  return <View key={trip.shareCode} style={s.sharedRow}>
+                    <View style={s.sharedDot} />
+                    <View style={s.sharedCopy}>
+                      <Text style={s.sharedTitle}>{trip.demo ? "Shared demo walk" : "A shared walk is active"}</Text>
+                      <Text style={s.sharedSubtitle}>Estimated arrival in {minutes} min</Text>
+                    </View>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`View shared walk ${index + 1}`}
+                      onPress={() => router.push({ pathname: "/track/[code]", params: { code: trip.shareCode } })}
+                      style={s.sharedViewButton}
+                    >
+                      <Text style={s.sharedViewText}>View</Text>
+                    </Pressable>
+                  </View>;
+                })
+                : null}
+              {contacts.refreshError ? <Text style={s.sharedEmpty}>Couldn’t refresh; showing the latest shared-walk status.</Text> : null}
+            </View>}
+            <View style={s.fromRow}>
+              <View style={s.fromCopy}>
+                <Text style={s.fromLabel}>STARTING POINT</Text>
+                <Text numberOfLines={1} style={s.fromValue}>{walk.from?.label ?? "Your current location"}</Text>
+              </View>
+              <Pressable accessibilityRole="button" onPress={() => setShowStartSearch(value => !value)} style={s.changeStart}>
+                <Text style={s.changeStartText}>{showStartSearch ? "Done" : "Change"}</Text>
               </Pressable>
             </View>
-            <View style={s.searchArea}>
-              {searchTarget === "from"
-                ? <AddressSearch label="Starting point" placeholder="Search an address or place" value={walk.from} near={walk.mapLocation ?? walk.from} onSelect={place => { setFocusedPlace(place); walk.setFrom(place); }} onClear={() => { setFocusedPlace(null); walk.setFrom(null); }} />
-                : <AddressSearch label="Where are you going?" placeholder="Search street, place, or landmark" value={walk.to} near={walk.mapLocation ?? walk.from} onSelect={place => { setFocusedPlace(place); walk.setTo(place); }} onClear={() => { setFocusedPlace(null); walk.setTo(null); }} required />}
-            </View>
-            {searchTarget === "from" ? <Pressable accessibilityRole="button" onPress={walk.locateStart} disabled={walk.busy} style={s.locationAction}>
-              <Text style={s.locationActionText}>{walk.busy ? "Finding your location…" : "Use my current location"}</Text>
-            </Pressable> : null}
+            {showStartSearch ? <>
+              <AddressSearch label="Starting point" placeholder="Search an address or place" value={walk.from} near={walk.mapLocation ?? walk.from} onSelect={place => {
+                setFocusedPlace(place); walk.setFrom(place); setShowStartSearch(false);
+              }} onClear={() => { setFocusedPlace(null); walk.setFrom(null); }} />
+              <Pressable accessibilityRole="button" onPress={() => { setShowStartSearch(false); walk.locateStart(); }} disabled={walk.busy} style={s.locationAction}>
+                <Text style={s.locationActionText}>{walk.busy ? "Finding your location…" : "Use current location instead"}</Text>
+              </Pressable>
+            </> : null}
+            <AddressSearch label="DESTINATION" placeholder="Search a street, place, or landmark" value={walk.to} near={walk.mapLocation ?? walk.from} onSelect={place => {
+              setFocusedPlace(place); walk.setTo(place);
+            }} onClear={() => { setFocusedPlace(null); walk.setTo(null); }} required />
             {walk.error ? <Notice tone="danger">{walk.error}</Notice> : null}
             <View style={s.planActions}>
               <ActionButton title={walk.busy ? "Finding routes…" : "Compare routes"} onPress={walk.planRoutes} loading={walk.busy} disabled={!walk.to} style={{ flex: 1 }} />
@@ -112,11 +150,11 @@ export default function Index() {
                 <Text style={s.demoButtonText}>{walk.busy ? "…" : "Demo"}</Text>
               </Pressable>
             </View>
-            <Text style={s.quietNote}>You choose when to share, and when the trip ends.</Text>
+            <Text style={s.quietNote}>You decide when to start and when sharing ends.</Text>
           </> : null}
 
           {walk.phase === "routes" && walk.result ? <>
-            <View style={s.phaseTop}><View style={{ flex: 1 }}><Eyebrow>ROUTE OPTIONS</Eyebrow><Text style={s.panelTitle}>Choose your way.</Text></View><Pressable onPress={() => { walk.setDemo(false); walk.editPlan(); }} style={s.smallAction}><Text style={s.smallActionText}>Edit places</Text></Pressable></View>
+            <View style={s.phaseTop}><View style={{ flex: 1 }}><Eyebrow>ROUTE OPTIONS</Eyebrow><Text style={s.panelTitle}>Choose your route.</Text></View><Pressable onPress={() => { walk.setDemo(false); setShowStartSearch(false); walk.editPlan(); }} style={s.smallAction}><Text style={s.smallActionText}>Edit places</Text></Pressable></View>
             <Text style={s.panelSubtitle} numberOfLines={2}>{walk.from?.label ?? "Starting point"} → {walk.to?.label ?? "Destination"}</Text>
             {walk.result.demo ? <View style={{ marginTop: 12 }}><Notice tone="warning">Demo walk · Routes, movement, and lighting scores are simulated. They do not describe real streets or real lighting.</Notice></View> : null}
             {!!walk.result.notices.length && walk.result.notices.map((notice, i) => <View key={i} style={{ marginTop: 9 }}><Notice>{notice}</Notice></View>)}
@@ -152,34 +190,9 @@ export default function Index() {
             {walk.demo && !walk.result.demo ? <View style={{ marginTop: 10 }}><Notice tone="warning">Simulated movement follows this route for 90 seconds. Lighting remains an estimate.</Notice></View> : null}
             {walk.error ? <View style={{ marginTop: 10 }}><Notice tone="danger">{walk.error}</Notice></View> : null}
             <View style={s.buttonRow}>
-              <ActionButton title="Edit trip" onPress={() => { walk.setDemo(false); walk.editPlan(); }} secondary style={{ flex: 1 }} />
-              <ActionButton title="Choose route" onPress={walk.reviewConsent} disabled={!route} style={{ flex: 1 }} />
+              <ActionButton title="Start walk" onPress={() => setShowStartConfirm(true)} disabled={!route} style={{ flex: 1 }} />
             </View>
             <Pressable accessibilityRole="button" onPress={walk.loadDemo} style={s.textAction}><Text style={s.textActionText}>Try a simulated Demo walk</Text></Pressable>
-          </> : null}
-
-          {walk.phase === "consent" && route ? <>
-            <Pressable accessibilityRole="button" onPress={walk.backToRoutes} style={s.backLink}><Text style={s.backLinkText}>‹  Back to route choices</Text></Pressable>
-            <SectionTitle eyebrow="Before you set off" title="Share on your terms." subtitle="Take a moment to see exactly what happens when you start." />
-            <View style={s.chosenRoute}><Eyebrow>YOUR CHOSEN ROUTE</Eyebrow><Text style={s.chosenName}>{route.label} · {formatMinutes(route.durationSeconds)} min</Text><Text style={s.body}>{walk.from?.label} → {walk.to?.label}</Text></View>
-            <View style={s.consentCard}>
-              <View style={s.consentIcon}><View style={s.consentRing}><View style={s.consentCore} /></View></View>
-              <Text style={s.consentHeadline}>Your trusted people can follow along.</Text>
-              <Text style={s.consentExact}>{Platform.OS === "web"
-                ? "Anyone you choose to send the private trip link to can see your live location until the trip ends."
-                : "On enrolled devices, the Auto-share setting starts on by default. If it is on, this device is verified, and Contacts access is already granted, each real walk is added to every matched app contact’s inbox at start. You can turn it off in Contacts before starting."}</Text>
-              <View style={s.consentRule} />
-              <Text style={s.consentLine}>Anyone holding the private link can view it. Share it only with someone you trust.</Text>
-              {Platform.OS !== "web" ? <Text style={s.consentLine}>Safe Walk will not ask for Contacts access when a walk starts. If access is off, there is no automatic share. Contacts without an app match are not messaged. Push is best-effort; turning auto-share off affects future walks only.</Text> : null}
-              <Text style={s.consentLine}>{Platform.OS === "web"
-                ? "Sharing is active only while the trip is active. On the web, location updates work only while this page is open."
-                : "Sharing is active only while a real trip is active. After you allow background location once, real walks continue updating while the app is in the background. If permission is declined or unavailable, updates run only while the app is open. Android shows an ongoing location notification. Background location needs a development build; Expo Go does not support it on Android and supports it only in the iOS simulator."}</Text>
-              <Text style={s.consentLine}>Safe Walk is not a safety guarantee and does not replace calling 911 in an emergency.</Text>
-            </View>
-            {walk.demo ? <View style={{ marginTop: 14 }}><Notice tone="warning">{walk.result?.demo ? "This is a simulated trip. The moving location and lighting scores are not real." : "Demo walk simulates your location along the chosen route. Lighting remains an estimate."}</Notice></View> : null}
-            {walk.error ? <View style={{ marginTop: 14 }}><Notice tone="danger">{walk.error}</Notice></View> : null}
-            <ActionButton title={walk.busy ? "Starting your walk…" : "Start walk"} onPress={walk.startTrip} loading={walk.busy} style={{ marginTop: 18 }} />
-            <Text style={s.quietNote}>You can end sharing at any time.</Text>
           </> : null}
 
           {walk.phase === "walking" && walk.trip ? <>
@@ -214,6 +227,33 @@ export default function Index() {
           </> : null}
         </ScrollView>
     </DraggableDrawer>
+
+    <Modal visible={showStartConfirm && walk.phase === "routes" && !!route} transparent animationType="fade" onRequestClose={() => setShowStartConfirm(false)}>
+      <View style={s.modalBackdrop}><View style={[s.modalCard, s.startModalCard]}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.startModalContent}>
+          <Eyebrow>BEFORE YOU START</Eyebrow>
+          <Text style={s.modalTitle}>Share on your terms.</Text>
+          {route ? <View style={s.startSummary}>
+            <Text style={s.startSummaryTitle}>{route.label} · {formatMinutes(route.durationSeconds)} min</Text>
+            <Text style={s.body}>{walk.from?.label ?? "Current location"} → {walk.to?.label ?? "Destination"}</Text>
+          </View> : null}
+          <View style={s.startDisclosure}>
+            <Text style={s.consentHeadline}>Your walk only shares when you start it.</Text>
+            <Text style={s.consentLine}>{Platform.OS === "web"
+              ? "If you choose to share the private trip link, anyone holding it can see your live location until sharing ends. On the web, updates work only while this page stays open."
+              : "On enrolled devices, Auto-share is on by default. If it is enabled, this device is verified, and Contacts access was already granted, this real walk is added to every matched app contact’s inbox at start. You can turn Auto-share off in Contacts before starting."}</Text>
+            {Platform.OS !== "web" ? <Text style={s.consentLine}>Safe Walk will not ask for Contacts access when a walk starts. If access is off, there is no automatic share. Contacts without an app match are not messaged. Push is best-effort; turning Auto-share off affects future walks only.</Text> : null}
+            {Platform.OS !== "web" ? <Text style={s.consentLine}>Anyone holding the private trip link can view it. Share it only with someone you trust.</Text> : null}
+            {Platform.OS !== "web" ? <Text style={s.consentLine}>Sharing is active only while a real trip is active. After you allow background location once, real walks continue updating while the app is in the background. If permission is declined or unavailable, updates run only while the app is open. Android shows an ongoing location notification. Background location needs a development build; Expo Go does not support it on Android and supports it only in the iOS simulator.</Text> : null}
+            <Text style={s.consentLine}>Safe Walk is not a safety guarantee and does not replace calling 911 in an emergency.</Text>
+          </View>
+          {walk.demo ? <View style={{ marginTop: 12 }}><Notice tone="warning">{walk.result?.demo ? "This is a simulated trip. The moving location and lighting scores are not real." : "Demo walk simulates your location along the chosen route. Lighting remains an estimate."}</Notice></View> : null}
+          {walk.error ? <View style={{ marginTop: 12 }}><Notice tone="danger">{walk.error}</Notice></View> : null}
+        </ScrollView>
+        <ActionButton title={walk.busy ? "Starting your walk…" : "Start walk"} onPress={() => { setShowStartConfirm(false); void walk.startTrip(); }} loading={walk.busy} disabled={!route} style={{ marginTop: 10 }} />
+        <ActionButton title="Not yet" secondary onPress={() => setShowStartConfirm(false)} style={{ marginTop: 9 }} />
+      </View></View>
+    </Modal>
 
     <Modal visible={showArrivalConfirm} transparent animationType="fade" onRequestClose={() => setShowArrivalConfirm(false)}>
       <View style={s.modalBackdrop}><View style={s.modalCard}>
@@ -254,6 +294,23 @@ const s = StyleSheet.create({
   planHeading: { flexDirection: "row", alignItems: "center" },
   panelTitle: { color: palette.evergreen, fontSize: 25, lineHeight: 30, fontWeight: "900", letterSpacing: -0.7 },
   panelSubtitle: { color: palette.muted, fontSize: 14, lineHeight: 20, marginTop: 4 },
+  sharedPreview: { borderRadius: 15, backgroundColor: palette.paleGreen, padding: 12, marginTop: 14, borderWidth: 1, borderColor: palette.line },
+  sharedPreviewTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  sharedCount: { color: palette.muted, fontSize: 11, fontWeight: "800" },
+  sharedRow: { flexDirection: "row", alignItems: "center", gap: 9, marginTop: 9, paddingTop: 9, borderTopWidth: 1, borderColor: "#D1D9C5" },
+  sharedDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: palette.citronDark },
+  sharedCopy: { flex: 1, minWidth: 0 },
+  sharedTitle: { color: palette.evergreen, fontSize: 13, fontWeight: "800" },
+  sharedSubtitle: { color: palette.muted, fontSize: 11, marginTop: 2 },
+  sharedViewButton: { minHeight: 34, justifyContent: "center", paddingHorizontal: 11, borderRadius: 10, backgroundColor: palette.paper },
+  sharedViewText: { color: palette.evergreen, fontSize: 12, fontWeight: "800" },
+  sharedEmpty: { color: palette.muted, fontSize: 12, marginTop: 5 },
+  fromRow: { flexDirection: "row", alignItems: "center", gap: 10, minHeight: 54, marginTop: 14, marginBottom: 13, borderRadius: 13, borderWidth: 1, borderColor: palette.line, paddingHorizontal: 13, backgroundColor: palette.oat },
+  fromCopy: { flex: 1, minWidth: 0 },
+  fromLabel: { color: palette.citronDark, fontSize: 9, fontWeight: "900", letterSpacing: 0.8 },
+  fromValue: { color: palette.evergreen, fontSize: 13, fontWeight: "700", marginTop: 3 },
+  changeStart: { minHeight: 36, justifyContent: "center", paddingHorizontal: 10, borderRadius: 10, backgroundColor: palette.paper },
+  changeStartText: { color: palette.evergreen, fontSize: 12, fontWeight: "800" },
   mapKey: { backgroundColor: palette.paleGreen, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 7, flexDirection: "row", alignItems: "center", gap: 6 },
   mapKeyDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: palette.citronDark },
   mapKeyText: { color: palette.evergreen, fontSize: 9, fontWeight: "900", letterSpacing: 1 },
@@ -338,5 +395,10 @@ const s = StyleSheet.create({
   pressed: { opacity: 0.76 },
   modalBackdrop: { flex: 1, backgroundColor: "rgba(15,35,28,0.55)", justifyContent: "center", padding: 20 },
   modalCard: { alignSelf: "center", width: "100%", maxWidth: 480, backgroundColor: palette.paper, padding: 22, borderRadius: 22 },
+  startModalCard: { maxHeight: "88%" },
+  startModalContent: { paddingBottom: 4 },
+  startSummary: { borderRadius: 13, padding: 12, backgroundColor: palette.paleGreen, marginBottom: 12 },
+  startSummaryTitle: { color: palette.evergreen, fontSize: 15, fontWeight: "900", marginBottom: 4 },
+  startDisclosure: { borderRadius: 14, padding: 14, backgroundColor: palette.oat },
   modalTitle: { color: palette.evergreen, fontSize: 25, lineHeight: 30, fontWeight: "900", marginBottom: 10 },
 });

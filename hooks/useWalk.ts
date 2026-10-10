@@ -12,7 +12,7 @@ import { readTrip, saveTrip } from "../lib/tripStorage";
 import { asPoint, pointAlong } from "../shared/geo";
 import type { Place, Position, RouteOption, RouteResult, TripCredentials } from "../shared/types";
 
-type Phase = "plan" | "routes" | "consent" | "walking" | "finished";
+type Phase = "plan" | "routes" | "walking" | "finished";
 type ActiveTrip = TripCredentials & { route: RouteOption };
 const message = (e: unknown) => e instanceof Error ? e.message : "Please try again.";
 const credentials = ({ route, ...trip }: ActiveTrip): TripCredentials => trip;
@@ -352,7 +352,6 @@ export function useWalk() {
     mapLocation,
     selectRoute: setSelectedId, trip, position, busy, restoring, error, notice, sendError, now, routingAvailable, finishedStatus,
     locateStart, loadDemo, planRoutes, startTrip, endTrip, shareTrip, reset,
-    reviewConsent: () => setPhase("consent"), backToRoutes: () => setPhase("routes"),
     editPlan: () => { setPhase("plan"); setResult(null); setError(""); },
     clearError: () => setError(""),
     shareUrl: trip ? tripLink(trip.shareCode) : "",
