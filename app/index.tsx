@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useWalk } from "../hooks/useWalk";
 import MapView from "../components/MapView";
+import MapContextPill from "../components/MapContextPill";
 import AddressSearch from "../components/AddressSearch";
 import DraggableDrawer from "../components/DraggableDrawer";
 import { ActionButton, Eyebrow, Notice, SectionTitle } from "../components/WalkUI";
@@ -12,7 +13,7 @@ import { common, palette } from "../constants/theme";
 import { useContacts } from "../hooks/useContacts";
 
 const formatMinutes = (seconds: number) => Math.max(1, Math.round(seconds / 60));
-const routeColors = { fastest: "#87977F", selected: "#567236" };
+const routeColors = { fastest: "#87977F", selected: "#426b49" };
 
 export default function Index() {
   const router = useRouter();
@@ -53,6 +54,18 @@ export default function Index() {
     : walk.phase === "routes" ? height * 0.64
       : walk.phase === "finished" ? height * (walk.finishedStatus === "arrived" && !walk.demo && !walk.trip?.pendingEnd ? 0.68 : 0.52) : height * 0.58;
   const route = walk.selectedRoute;
+  const mapIsDemo = walk.phase === "walking"
+    ? walk.demo || !!walk.trip?.demo
+    : walk.phase === "finished"
+      ? walk.demo || !!walk.trip?.demo
+      : walk.phase === "routes" && !!walk.result?.demo;
+  const mapContextLabel = walk.phase === "walking"
+    ? mapIsDemo ? "SIMULATED WALK" : "LIVE WALK"
+    : walk.phase === "routes"
+      ? mapIsDemo ? "DEMO ROUTE · SAMPLE" : "ROUTE PREVIEW"
+      : walk.phase === "finished"
+        ? mapIsDemo ? "DEMO WALK ENDED" : "WALK ENDED"
+        : "MAP PREVIEW";
   useEffect(() => { setActualPanelHeight(panelHeight); }, [panelHeight]);
   useEffect(() => () => {
     if (startTripTimer.current) clearTimeout(startTripTimer.current);
@@ -83,10 +96,12 @@ export default function Index() {
     <View style={StyleSheet.absoluteFill}>
       <MapView center={mapCenter} routes={mapRoutes} markers={mapMarkers}
         livePosition={walk.phase === "walking" ? walk.position : walk.mapLocation}
+        livePositionLabel="Your current location"
         fitPadding={{ top: insets.top + 74, right: 28, bottom: actualPanelHeight + 14, left: 28 }}
         attributionBottom={actualPanelHeight + 7} />
     </View>
 
+    <MapContextPill label={mapContextLabel} top={insets.top + 76} tone={mapIsDemo ? "demo" : "default"} />
     <View style={[s.topBar, { paddingTop: insets.top + 8 }]}>
       <View style={s.brandGroup}>
         <View style={s.brandMark}><View style={s.brandRing} /><Text style={s.brandMarkText}>SW</Text></View>
@@ -180,7 +195,16 @@ export default function Index() {
 
           {walk.phase === "routes" && walk.result ? <>
             <View style={s.phaseTop}><View style={{ flex: 1 }}><Eyebrow>ROUTE OPTIONS</Eyebrow><Text style={s.panelTitle}>Choose your route.</Text></View><Pressable onPress={() => { walk.setDemo(false); setShowStartSearch(false); walk.editPlan(); }} style={s.smallAction}><Text style={s.smallActionText}>Edit places</Text></Pressable></View>
-            <Text style={s.panelSubtitle} numberOfLines={2}>{walk.from?.label ?? "Starting point"} → {walk.to?.label ?? "Destination"}</Text>
+            <View accessible accessibilityLabel={`From ${walk.from?.label ?? "Starting point"} to ${walk.to?.label ?? "Destination"}`} style={s.routeEndpoints}>
+              <View style={s.routeEndpoint}>
+                <View style={s.routeEndpointDot} />
+                <View style={s.routeEndpointCopy}><Text style={s.routeEndpointLabel}>FROM</Text><Text numberOfLines={1} style={s.routeEndpointName}>{walk.from?.label ?? "Starting point"}</Text></View>
+              </View>
+              <View style={s.routeEndpoint}>
+                <View style={[s.routeEndpointDot, s.destinationEndpointDot]} />
+                <View style={s.routeEndpointCopy}><Text style={s.routeEndpointLabel}>TO</Text><Text numberOfLines={1} style={s.routeEndpointName}>{walk.to?.label ?? "Destination"}</Text></View>
+              </View>
+            </View>
             {walk.result.demo ? <View style={{ marginTop: 12 }}><Notice tone="warning">Demo walk · Routes, movement, and lighting scores are simulated. They do not describe real streets or real lighting.</Notice></View> : null}
             {!!walk.result.notices.length && walk.result.notices.map((notice, i) => <View key={i} style={{ marginTop: 9 }}><Notice>{notice}</Notice></View>)}
             <Text style={s.routeSectionLabel}>PICK A ROUTE</Text>
@@ -360,6 +384,13 @@ const s = StyleSheet.create({
   smallAction: { borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9, backgroundColor: palette.paleGreen },
   smallActionText: { color: palette.evergreen, fontSize: 12, fontWeight: "800" },
   routeSectionLabel: { color: palette.citronDark, fontSize: 10, fontWeight: "900", letterSpacing: 1, marginTop: 17, marginBottom: 8 },
+  routeEndpoints: { flexDirection: "row", gap: 14, marginTop: 12, marginBottom: 2, paddingVertical: 12, borderTopWidth: 1, borderBottomWidth: 1, borderColor: palette.line },
+  routeEndpoint: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 9 },
+  routeEndpointCopy: { flex: 1, minWidth: 0 },
+  routeEndpointDot: { width: 18, height: 18, borderRadius: 10, borderWidth: 2, borderColor: palette.evergreen, backgroundColor: palette.paper, alignItems: "center", justifyContent: "center" },
+  destinationEndpointDot: { backgroundColor: "#426b49", borderColor: "#426b49" },
+  routeEndpointLabel: { color: palette.muted, fontSize: 8, fontWeight: "900", letterSpacing: 0.9 },
+  routeEndpointName: { color: palette.evergreen, fontSize: 12, fontWeight: "800", marginTop: 3 },
   routeChoices: { gap: 9 },
   routeCard: { backgroundColor: palette.paper, borderColor: palette.line, borderWidth: 1.5, borderRadius: 16, padding: 14 },
   routeSelected: { borderColor: palette.evergreen, backgroundColor: "#F5F6EE" },

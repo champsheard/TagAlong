@@ -4,6 +4,7 @@ export interface MapViewProps {
   routes?: { id: string; geometry: Geometry; color: string }[];
   markers?: (Point & { label: string })[];
   livePosition?: Point | null;
+  livePositionLabel?: string;
   fitPadding?: { top: number; right: number; bottom: number; left: number };
   attributionBottom?: number;
 }

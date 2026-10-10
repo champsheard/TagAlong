@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, useWi
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import MapView from "../../components/MapView";
+import MapContextPill from "../../components/MapContextPill";
 import { BrandHeader, Eyebrow, Notice, SectionTitle } from "../../components/WalkUI";
 import { common, palette } from "../../constants/theme";
 import { useTracking } from "../../hooks/useTracking";
@@ -33,9 +34,16 @@ export default function TrackTrip() {
     : first ? { lat: first[1], lng: first[0] } : { lat: 37.7749, lng: -122.4194 },
   [data?.lastLocation?.lat, data?.lastLocation?.lng, first?.[0], first?.[1]]);
   const mapRoutes = useMemo(() => data ? [{ id: "trip-route", geometry: data.route, color: data.status === "help" ? palette.red : "#567236" }] : [], [data?.route, data?.status]);
-  const mapMarkers = useMemo(() => data?.lastLocation
-    ? [{ lat: data.lastLocation.lat, lng: data.lastLocation.lng, label: "Last location" }] : [],
-  [data?.lastLocation?.lat, data?.lastLocation?.lng]);
+  const mapMarkers = useMemo(() => {
+    const coordinates = data?.route.coordinates;
+    if (!coordinates?.length) return [];
+    const [startLng, startLat] = coordinates[0];
+    const [destinationLng, destinationLat] = coordinates[coordinates.length - 1];
+    return [
+      { lat: startLat, lng: startLng, label: "Start" },
+      { lat: destinationLat, lng: destinationLng, label: "Destination" },
+    ];
+  }, [data?.route]);
   const panelHeight = height * 0.49;
 
   if (!code) return <View style={common.page}><ScrollView contentContainerStyle={common.content}><BackToSafeWalk onPress={leaveLiveView} /><BrandHeader /><Notice tone="warning">This tracking link is incomplete. Ask your contact to send you the full link.</Notice></ScrollView></View>;
@@ -62,10 +70,15 @@ export default function TrackTrip() {
   </ScrollView></View>;
 
   const waitingTooLong = data.status === "active" && tracking.now - (data.lastUpdateAt ?? data.startedAt) >= 120000;
+  const mapContextLabel = data.demo
+    ? "DEMO WALK · SIMULATED LOCATION"
+    : data.lastLocation
+      ? waitingTooLong ? "LAST LOCATION · MAY BE OLD" : "LAST SHARED LOCATION"
+      : "ROUTE ONLY · WAITING FOR LOCATION";
   const statusTitle = data.status === "help" ? "Your contact needs help." : data.status === "arrived" ? "Your contact has arrived." : "Your contact is on the way.";
   return <View style={s.screen}>
     <View style={StyleSheet.absoluteFill}>
-      <MapView center={center} routes={mapRoutes} markers={mapMarkers} livePosition={data.lastLocation}
+      <MapView center={center} routes={mapRoutes} markers={mapMarkers} livePosition={data.lastLocation} livePositionLabel="Walker's most recently shared location"
         fitPadding={{ top: insets.top + 86, right: 30, bottom: panelHeight + 12, left: 30 }}
         attributionBottom={panelHeight + 7} />
     </View>
@@ -76,7 +89,7 @@ export default function TrackTrip() {
         <Text style={s.liveBadgeText}>{data.status === "active" ? waitingTooLong ? "OLDER UPDATE" : "LIVE" : data.status === "help" ? "HELP" : "ENDED"}</Text>
       </View>
     </View>
-    {data.demo ? <View style={[s.demoBanner, { top: insets.top + 64 }]}><Text style={s.demoText}>DEMO WALK · Location movement is simulated, not a real walker.</Text></View> : null}
+    <MapContextPill label={mapContextLabel} top={insets.top + 64} tone={data.demo ? "demo" : waitingTooLong ? "warning" : "default"} />
     <View style={s.panelDock}>
       <View style={[s.panel, { height: panelHeight, paddingBottom: Math.max(insets.bottom, 12) }]}>
         <View style={s.grabber} />
