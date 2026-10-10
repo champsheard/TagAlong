@@ -19,23 +19,26 @@ on arrival, help or expiry. Precise coordinates and identifiers must not enter l
 storage or services. Do not turn optional contact enrollment into mandatory login.
 
 On 2026-10-06, the user selected automatic phone/email matching rather than
-private QR pairing. On 2026-10-09, they updated native sharing to match saved
-contacts against opted-in, verified, discoverable Safe Walk devices. They chose
-email verification for the sender's own device. A match receives an explicit
-in-app trip share, inbox entry, and best-effort push; a non-match receives a
-private link through the native messaging/share UI. Safe Walk remains account-free.
+private QR pairing. On 2026-10-09, they chose local matching against opted-in,
+verified, discoverable Safe Walk devices and email verification for the sender.
+On 2026-10-10, they chose default-on automatic sharing to all such matches from
+the sender's device address book, with a user-accessible opt-out for future walks.
+This is not a broadcast to every Safe Walk installation. Safe Walk remains
+account-free.
 
-**Why:** This latest choice supersedes the earlier native link-only direction.
-Sharing a live location remains a deliberate action; merely syncing a contact
-must not expose an active trip.
+**Why:** The user's latest choice supersedes the prior explicit-share-only rule,
+while preserving control over which contacts can match and whether future walks
+are shared automatically.
 
-**How to apply:** Read names and raw contact details locally, and send only
-locally hashed phone/email identifiers for matching. The verification email goes
-to the sender, never the selected contact. Require the recipient to have opted
-in and verified an identifier; add successful shares to the recipient inbox
-without a second acceptance step. Keep the private-link path for unmatched
-contacts, keep notification delivery best-effort, and never claim delivery merely
-because a notification was queued. Preserve explicit enrollment removal.
+**How to apply:** Keep names and raw contact details local; send only locally
+hashed phone/email identifiers for discovery. Require the sender to be verified,
+use Contacts permission only if already granted (never prompt at walk start),
+and match only recipient devices that are verified, opted in, and discoverable.
+Auto-share real walks only, not simulated demos. Turning auto-share off affects
+future walks and does not revoke a current share. Non-matches receive a private
+link only when the user chooses to send one. Keep push delivery best-effort and
+never claim delivery merely because a notification was queued. Preserve
+enrollment removal.
 
 Background recipient widgets do not authorize background walker GPS collection.
 

@@ -36,6 +36,7 @@ database.exec(`
     id TEXT PRIMARY KEY, token_hash TEXT NOT NULL,
     platform TEXT NOT NULL CHECK(platform IN ('ios','android','web')),
     discoverable INTEGER NOT NULL DEFAULT 0, push_token TEXT, push_start_token TEXT,
+    auto_share INTEGER NOT NULL DEFAULT 1,
     created_at INTEGER NOT NULL, seen_at INTEGER NOT NULL
   );
   CREATE TABLE IF NOT EXISTS contact_identifiers (
@@ -71,6 +72,11 @@ database.exec(`
   );
   CREATE INDEX IF NOT EXISTS notification_pending ON notification_outbox(state,next_attempt_at);
 `);
+
+const installationColumns = database.pragma("table_info(installations)") as { name: string }[];
+if (!installationColumns.some(column => column.name === "auto_share")) {
+  database.exec("ALTER TABLE installations ADD COLUMN auto_share INTEGER NOT NULL DEFAULT 1");
+}
 
 export function cached<T>(key: string): T | null {
   const row = database.prepare("SELECT value FROM cache WHERE key = ? AND expires_at > ?")

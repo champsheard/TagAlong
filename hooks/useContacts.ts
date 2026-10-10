@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Platform } from "react-native";
 import { api, ApiError } from "../lib/api";
-import { ensureInstallation, readInstallation, saveInstallation } from "../lib/installationStorage";
+import { clearContactCountry, ensureInstallation, readInstallation, saveContactCountry, saveInstallation } from "../lib/installationStorage";
 import { readDeviceContacts } from "../lib/deviceContacts";
 import { enableDeviceNotifications } from "../lib/deviceNotifications";
 import { rankContacts, type ContactMatch, type ContactsConfig, type DeviceContact, type IdentifierKind, type InstallationProfile, type ReceivedTrip } from "../shared/contacts";
@@ -65,11 +65,18 @@ export function useContacts() {
     if (Platform.OS === "web") throw new Error("Sync contacts in the iOS or Android app. Link sharing still works here.");
     const session = await ensureInstallation();
     const local = await readDeviceContacts(country);
+    await saveContactCountry(country).catch(() => {});
     const hashes = [...new Set(local.flatMap(c => c.hashes))];
     const matches: ContactMatch[] = [];
     for (let i = 0; i < hashes.length; i += 250) matches.push(...(await api.discover(session, hashes.slice(i, i + 250))).matches);
     const matched = rankContacts(local, matches);
     setContacts(matched); setNotice(`Synced ${local.length} accessible contacts. ${matched.filter(c => c.installationIds.length).length} have an enrolled mobile app. Names stay on this phone.`);
+  });
+  const autoShare = (enabled: boolean) => perform(async () => {
+    setProfile(await api.updateProfile(await ensureInstallation(), { autoShare: enabled }));
+    setNotice(enabled
+      ? "Automatic sharing is on. New real walks will be added to all matched, opted-in Safe Walk inboxes."
+      : "Automatic sharing is off. New walks won't be sent to app contacts unless you share them manually.");
   });
   const notifications = () => perform(async () => { setProfile(await enableDeviceNotifications()); setNotice("App notifications enabled on this device."); });
   const discoverable = (enabled: boolean) => perform(async () => {
@@ -80,7 +87,8 @@ export function useContacts() {
   const forget = () => perform(async () => {
     const s = await readInstallation();
     if (s) { try { await api.forget(s); } catch (e) { if (!(e instanceof ApiError && e.status === 401)) throw e; } }
-    await saveInstallation(null); setProfile(null); setContacts([]); setInbox([]); setChallenge(null); setRefreshError("");
+    await saveInstallation(null); await clearContactCountry().catch(() => {});
+    setProfile(null); setContacts([]); setInbox([]); setChallenge(null); setRefreshError("");
     await clearTrackingWidget();
     setNotice("Device enrollment, matching identifiers, and notification tokens removed from Safe Walk.");
   });
@@ -89,5 +97,5 @@ export function useContacts() {
     setNotice(result.notificationsQueued ? `Shared with ${contact.name}'s app. A notification is queued; delivery depends on their device and connection.`
       : `Shared with ${contact.name}'s app inbox. No push notification was queued for this share; push may be disabled or a recent notification may have been suppressed.`);
   });
-  return { profile, config, contacts, inbox, challenge, busy, loading, error, refreshError, notice, enroll, begin, confirm, cancelVerification, sync, notifications, discoverable, forget, share };
+  return { profile, config, contacts, inbox, challenge, busy, loading, error, refreshError, notice, enroll, begin, confirm, cancelVerification, sync, autoShare, notifications, discoverable, forget, share };
 }

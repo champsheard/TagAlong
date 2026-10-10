@@ -4,8 +4,12 @@ export type IdentifierKind = "phone" | "email";
 export type InstallationSession = { installationId: string; authToken: string };
 export type InstallationProfile = {
   installationId: string; platform: "ios" | "android" | "web";
-  verifiedKinds: IdentifierKind[]; discoverable: boolean; notificationsEnabled: boolean;
+  verifiedKinds: IdentifierKind[]; discoverable: boolean; notificationsEnabled: boolean; autoShare: boolean;
 };
+export type AutoShareResult =
+  | { status: "unsupported" | "demo" | "not-enrolled" | "off" | "unverified" | "no-permission" | "no-matches" | "no-current-recipients" }
+  | { status: "cancelled" }
+  | { status: "shared" | "partial" | "failed"; matchedCount: number; sharedCount: number; notificationsQueued: number; error?: string };
 export type ContactMatch = { hash: string; installationId: string; notificationsEnabled: boolean };
 export type DeviceContact = {
   id: string; name: string; hashes: string[]; installationIds: string[]; notificationsEnabled: boolean;

@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import MapView from "../../components/MapView";
 import { BrandHeader, Eyebrow, Notice, SectionTitle } from "../../components/WalkUI";
 import { common, palette } from "../../constants/theme";
@@ -18,6 +18,8 @@ const elapsed = (ms: number) => {
 export default function TrackTrip() {
   const params = useLocalSearchParams<{ code?: string | string[] }>();
   const code = Array.isArray(params.code) ? params.code[0] : params.code ?? "";
+  const router = useRouter();
+  const leaveLiveView = () => router.canGoBack() ? router.back() : router.replace("/");
   const tracking = useTracking(code);
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
@@ -36,17 +38,24 @@ export default function TrackTrip() {
   [data?.lastLocation?.lat, data?.lastLocation?.lng]);
   const panelHeight = height * 0.49;
 
-  if (!code) return <View style={common.page}><ScrollView contentContainerStyle={common.content}><BrandHeader /><Notice tone="warning">This tracking link is incomplete. Ask your contact to send you the full link.</Notice></ScrollView></View>;
+  if (!code) return <View style={common.page}><ScrollView contentContainerStyle={common.content}><BackToSafeWalk onPress={leaveLiveView} /><BrandHeader /><Notice tone="warning">This tracking link is incomplete. Ask your contact to send you the full link.</Notice></ScrollView></View>;
 
   if (tracking.expired) return <View style={common.page}><ScrollView contentContainerStyle={common.content}>
+    <BackToSafeWalk onPress={leaveLiveView} />
     <BrandHeader />
     <View style={s.expiredMark}><Text style={s.expiredMarkText}>—</Text></View>
     <SectionTitle eyebrow="Private trip link" title="This link is no longer active." subtitle="The trip may have ended, or this private link may be invalid. Ask the person walking to share a current link." />
     <View style={s.privacy}><Text style={s.privacyTitle}>Your privacy matters</Text><Text style={s.copy}>Safe Walk only shows a live trip while sharing is active. There is no account or sign-in for a contact to use this page.</Text></View>
   </ScrollView></View>;
 
-  if (!data && tracking.loading) return <View style={[common.page, s.center]}><View style={s.skeleton}><View style={s.skeletonLine} /><View style={[s.skeletonLine, { width: "60%" }]} /><View style={s.skeletonMap} /></View><Text style={s.loading}>Opening the private trip link…</Text></View>;
-  if (!data) return <View style={common.page}><ScrollView contentContainerStyle={common.content}><BrandHeader />
+  if (!data && tracking.loading) return <View style={[common.page, s.center]}>
+    <View style={{ width: "100%", maxWidth: 580 }}>
+      <BackToSafeWalk onPress={leaveLiveView} />
+      <View style={s.skeleton}><View style={s.skeletonLine} /><View style={[s.skeletonLine, { width: "60%" }]} /><View style={s.skeletonMap} /></View>
+      <Text style={s.loading}>Opening the private trip link…</Text>
+    </View>
+  </View>;
+  if (!data) return <View style={common.page}><ScrollView contentContainerStyle={common.content}><BackToSafeWalk onPress={leaveLiveView} /><BrandHeader />
     <SectionTitle eyebrow="Private trip link" title="We can’t reach this trip yet." subtitle="Check your connection. This page will keep trying to refresh automatically." />
     {tracking.error ? <Notice tone="warning">{tracking.error}</Notice> : null}
     <View style={{ marginTop: 15 }}><Notice>Location appears only while the person walking has sharing active and Safe Walk open in the foreground.</Notice></View>
@@ -72,6 +81,7 @@ export default function TrackTrip() {
       <View style={[s.panel, { height: panelHeight, paddingBottom: Math.max(insets.bottom, 12) }]}>
         <View style={s.grabber} />
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.panelContent}>
+          <BackToSafeWalk onPress={leaveLiveView} />
           {data.status === "help" ? <Notice tone="danger">Your contact flagged that they need help. This page does not call emergency services. If you believe someone is in immediate danger, contact 911.</Notice> :
             data.status === "arrived" ? <Notice>The trip has ended. Live location sharing is stopped.</Notice> :
               waitingTooLong ? <Notice tone="warning">No location update for {elapsed(tracking.now - (data.lastUpdateAt ?? data.startedAt))}. This may be an older location; try contacting your walker directly.</Notice> :
@@ -106,6 +116,13 @@ export default function TrackTrip() {
   </View>;
 }
 
+function BackToSafeWalk({ onPress }: { onPress: () => void }) {
+  return <Pressable accessibilityRole="button" accessibilityLabel="Back to Safe Walk"
+    onPress={onPress} style={s.exitButton}>
+    <Text style={s.exitText}>‹  Back to Safe Walk</Text>
+  </Pressable>;
+}
+
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: palette.oat },
   center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
@@ -134,6 +151,8 @@ const s = StyleSheet.create({
   panel: { width: "100%", maxWidth: 600, backgroundColor: palette.paper, borderTopLeftRadius: 25, borderTopRightRadius: 25, paddingHorizontal: 17, paddingTop: 10, borderWidth: 1, borderBottomWidth: 0, borderColor: palette.line, shadowColor: palette.evergreen, shadowOpacity: 0.13, shadowRadius: 20, shadowOffset: { width: 0, height: -5 }, elevation: 9 },
   grabber: { alignSelf: "center", width: 38, height: 4, borderRadius: 3, backgroundColor: "#C7CEBC", marginBottom: 13 },
   panelContent: { paddingBottom: 4 },
+  exitButton: { alignSelf: "flex-start", backgroundColor: palette.oat, borderColor: palette.line, borderWidth: 1, borderRadius: 12, paddingHorizontal: 13, paddingVertical: 9, marginBottom: 8 },
+  exitText: { color: palette.evergreen, fontSize: 13, fontWeight: "800" },
   titleBlock: { marginTop: 17, marginBottom: 5 },
   title: { color: palette.evergreen, fontSize: 27, lineHeight: 33, fontWeight: "900", letterSpacing: -0.7 },
   subtitle: { color: palette.muted, fontSize: 15, lineHeight: 22, marginTop: 5 },

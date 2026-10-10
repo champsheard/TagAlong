@@ -1,3 +1,3 @@
-- [Safe Walk delivery and privacy](safe-walk-contract.md) — milestone pauses, private links, and verified contact matching with local address-book privacy.
+- [Safe Walk delivery and privacy](safe-walk-contract.md) — milestone pauses, private links, verified local contact matching, and default-on auto-sharing with a future-walk opt-out.
 - [Provider constraints](provider-constraints.md) — public Nominatim requires deliberate search submission, not autocomplete.
 - [Runtime compatibility](runtime-compatibility.md) — Expo Go peer versions and development middleware/watch behavior need explicit compatibility checks.

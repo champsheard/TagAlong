@@ -30,6 +30,13 @@ export default function Contacts() {
       {c.error ? <Notice tone="warning">{c.error}</Notice> : null}{c.notice ? <Notice>{c.notice}</Notice> : null}
       {c.refreshError ? <Notice tone="warning">Shared trips couldn't refresh. {c.refreshError}</Notice> : null}
       {linkNotice ? <Notice>{linkNotice}</Notice> : null}
+      {c.profile ? <View style={common.card}>
+        <Eyebrow>Shared walks</Eyebrow>
+        <Text style={s.body}>New app shares appear here automatically. Open one to see its live tracking view.</Text>
+        {c.inbox.length ? c.inbox.map(t => <Pressable key={t.shareCode} accessibilityRole="button" onPress={() => router.push(`/track/${t.shareCode}`)} style={s.contact}>
+          <View><Text style={s.name}>{t.demo ? "Demo walk" : "Shared walk"} · {t.status === "help" ? "Help requested" : t.status === "arrived" ? "Arrived" : "Active"}</Text><Text style={s.small}>ETA {new Date(t.etaAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · Open tracking map</Text></View>
+        </Pressable>) : <Text style={s.small}>No unexpired walks have been shared with this device.</Text>}
+      </View> : null}
       {trip ? <View style={common.card}><Eyebrow>Your active walk</Eyebrow><Text style={s.body}>Choose an app contact below, or send the private link through your usual messaging app.</Text><ActionButton title="Share a link with anyone" secondary onPress={sendLink} style={{ marginTop: 12 }} /></View> : null}
       <View style={common.card}>
         <Eyebrow>Privacy and choice</Eyebrow>
@@ -72,13 +79,6 @@ export default function Contacts() {
         </View>
       </> : null}
       {c.profile ? <>
-        <View style={common.card}>
-          <Eyebrow>Shared with you</Eyebrow>
-          <Text style={s.body}>Your app inbox works even without push permission. Notifications are not guaranteed; open the trip to check its current status.</Text>
-          {c.inbox.length ? c.inbox.map(t => <Pressable key={t.shareCode} accessibilityRole="button" onPress={() => router.push(`/track/${t.shareCode}`)} style={s.contact}>
-            <View><Text style={s.name}>{t.demo ? "Demo walk" : "Shared walk"} · {t.status === "help" ? "Help requested" : t.status === "arrived" ? "Arrived" : "Active"}</Text><Text style={s.small}>ETA {new Date(t.etaAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · Open tracking map</Text></View>
-          </Pressable>) : <Text style={s.small}>No unexpired trips shared with this device.</Text>}
-        </View>
         <View style={common.card}>
           <Eyebrow>Device settings</Eyebrow>
           {verified ? <View style={s.setting}><View style={{ flex: 1 }}><Text style={s.name}>Discoverable to app contacts</Text><Text style={s.small}>Hide from new matches without affecting existing links.</Text></View><Switch accessibilityLabel="Discoverable to app contacts" value={c.profile.discoverable} disabled={c.busy} onValueChange={c.discoverable} /></View> : null}

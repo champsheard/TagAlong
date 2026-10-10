@@ -4,7 +4,7 @@ import { HttpError } from "./errors";
 import { canonicalIdentifier, normalizeIdentifier, type IdentifierKind, type InstallationProfile } from "../../shared/contacts";
 import { verificationGateway } from "./verificationGateway";
 
-export type Installation = { id: string; platform: "ios" | "android" | "web"; discoverable: number; push_token: string | null; push_start_token: string | null; token_hash: string; seen_at: number };
+export type Installation = { id: string; platform: "ios" | "android" | "web"; discoverable: number; auto_share: number; push_token: string | null; push_start_token: string | null; token_hash: string; seen_at: number };
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
 function keyed(value: string) {
   if (!process.env.SESSION_SECRET) throw new HttpError(503, "Contact matching needs the server's SESSION_SECRET.");
@@ -22,7 +22,8 @@ export function authenticateInstallation(token?: string): Installation {
 export function installationProfile(installation: Installation): InstallationProfile {
   const rows = database.prepare("SELECT DISTINCT kind FROM contact_identifiers WHERE installation_id = ?").all(installation.id) as { kind: IdentifierKind }[];
   return { installationId: installation.id, platform: installation.platform,
-    verifiedKinds: rows.map(r => r.kind), discoverable: !!installation.discoverable, notificationsEnabled: !!installation.push_token };
+    verifiedKinds: rows.map(r => r.kind), discoverable: !!installation.discoverable,
+    notificationsEnabled: !!installation.push_token, autoShare: !!installation.auto_share };
 }
 export function createInstallation(platform: unknown) {
   if (platform !== "ios" && platform !== "android" && platform !== "web") throw new HttpError(400, "Invalid mobile platform.");
@@ -78,16 +79,18 @@ export function discoverContacts(installation: Installation, body: { hashes?: st
     (query.all(lookupDigest(hash), Date.now() - 30 * 86400000, installation.id) as { id: string; push_token: string | null }[])
       .map(i => ({ hash, installationId: i.id, notificationsEnabled: !!i.push_token }))) };
 }
-export function updateInstallation(installation: Installation, body: { pushToken?: string | null; discoverable?: boolean; pushStartToken?: string | null }) {
+export function updateInstallation(installation: Installation, body: { pushToken?: string | null; discoverable?: boolean; pushStartToken?: string | null; autoShare?: boolean }) {
   if (body.pushToken !== undefined && body.pushToken !== null && !/^(ExponentPushToken|ExpoPushToken)\[[\w-]{10,200}\]$/.test(body.pushToken)) throw new HttpError(400, "Invalid notification token.");
   if (body.pushStartToken !== undefined && body.pushStartToken !== null && !/^[a-f0-9]{32,512}$/i.test(body.pushStartToken)) throw new HttpError(400, "Invalid Live Activity token.");
   if (body.discoverable !== undefined && typeof body.discoverable !== "boolean") throw new HttpError(400, "Invalid contact discovery setting.");
+  if (body.autoShare !== undefined && typeof body.autoShare !== "boolean") throw new HttpError(400, "Invalid automatic sharing setting.");
   const next = { ...installation,
     push_token: body.pushToken === undefined ? installation.push_token : body.pushToken,
     push_start_token: body.pushStartToken === undefined ? installation.push_start_token : body.pushStartToken,
-    discoverable: body.discoverable === undefined ? installation.discoverable : Number(body.discoverable) };
-  database.prepare("UPDATE installations SET push_token = ?, push_start_token = ?, discoverable = ? WHERE id = ?")
-    .run(next.push_token, next.push_start_token, next.discoverable, installation.id);
+    discoverable: body.discoverable === undefined ? installation.discoverable : Number(body.discoverable),
+    auto_share: body.autoShare === undefined ? installation.auto_share : Number(body.autoShare) };
+  database.prepare("UPDATE installations SET push_token = ?, push_start_token = ?, discoverable = ?, auto_share = ? WHERE id = ?")
+    .run(next.push_token, next.push_start_token, next.discoverable, next.auto_share, installation.id);
   return installationProfile(next);
 }
 export function removeInstallation(installation: Installation) {

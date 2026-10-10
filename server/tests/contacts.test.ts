@@ -57,6 +57,12 @@ test("device credentials are hashed and unauthenticated matching is forbidden", 
   const s = await enroll();
   const row = db.database.prepare("SELECT token_hash FROM installations WHERE id = ?").get(s.installationId) as { token_hash: string };
   assert.notEqual(row.token_hash, s.authToken);
+  const profile = await call("/installations/me", "GET", undefined, s.authToken);
+  assert.equal(profile.data.autoShare, true);
+  const optedOut = await call("/installations/me", "PATCH", { autoShare: false }, s.authToken);
+  assert.equal(optedOut.data.autoShare, false);
+  assert.equal((await call("/installations/me", "GET", undefined, s.authToken)).data.autoShare, false);
+  assert.equal((await call("/installations/me", "PATCH", { autoShare: "false" }, s.authToken)).status, 400);
   assert.equal((await call("/installations/me")).status, 401);
   assert.equal((await call("/contacts/discover", "POST", { hashes: [] }, s.authToken)).status, 403);
   assert.equal((await call("/installations/me", "PATCH", { pushToken: "not-an-expo-token" }, s.authToken)).status, 400);
@@ -101,8 +107,13 @@ test("app sharing needs both sender auth and trip write auth; pushes, inbox, and
   const sharePath = `/trips/${t.tripId}/share`, body = { installationIds: [receiver.installationId] };
   assert.equal((await call(sharePath, "POST", body, sender.authToken)).status, 401);
   assert.equal((await call(sharePath, "POST", body, sender.authToken, { "X-Trip-Token": "wrong" })).status, 404);
+  assert.equal((await call(sharePath, "POST", { installationIds: Array(251).fill(receiver.installationId) },
+    sender.authToken, { "X-Trip-Token": t.writeToken })).status, 400);
   const result = await call(sharePath, "POST", body, sender.authToken, { "X-Trip-Token": t.writeToken });
   assert.equal(result.status, 200); assert.equal(result.data.notificationsQueued, 1);
+  const maxBatch = await call(sharePath, "POST", { installationIds: Array(250).fill(receiver.installationId) },
+    sender.authToken, { "X-Trip-Token": t.writeToken });
+  assert.equal(maxBatch.status, 200); assert.equal(maxBatch.data.sharedCount, 1);
   assert.equal((await call(sharePath, "POST", body, sender.authToken, { "X-Trip-Token": t.writeToken })).data.notificationsQueued, 0);
   assert.equal((await call("/inbox", "GET", undefined, receiver.authToken)).data.trips[0].shareCode, t.shareCode);
   await notifications.processNotifications(); assert.ok(queuedPushes > 0);

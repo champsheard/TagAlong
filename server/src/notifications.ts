@@ -21,7 +21,7 @@ export function shareToInstallations(tripId: string, writeToken: string | undefi
   const trip = writable(tripId, writeToken);
   if (trip.status !== "active") throw new HttpError(409, "Share an active trip. This walk has ended.");
   if (!installationProfile(sender).verifiedKinds.length) throw new HttpError(403, "Verify your phone or email before sharing to app contacts.");
-  if (!Array.isArray(ids) || !ids.length || ids.length > 10 || ids.some(id => typeof id !== "string" || !/^[a-f0-9-]{36}$/.test(id))) throw new HttpError(400, "Choose up to ten app devices.");
+  if (!Array.isArray(ids) || !ids.length || ids.length > 250 || ids.some(id => typeof id !== "string" || !/^[a-f0-9-]{36}$/.test(id))) throw new HttpError(400, "Choose up to 250 app devices.");
   let sharedCount = 0, notificationsQueued = 0;
   const recipients = [...new Set(ids)] as string[];
   for (const id of recipients) {

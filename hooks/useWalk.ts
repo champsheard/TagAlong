@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { AppState, Platform } from "react-native";
 import * as Location from "expo-location";
 import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
+import { autoShareTrip } from "../lib/autoShare";
 import { api, ApiError, shareTripLink, tripLink } from "../lib/api";
 import { readTrip, saveTrip } from "../lib/tripStorage";
 import { asPoint, pointAlong } from "../shared/geo";
@@ -43,6 +44,7 @@ export function useWalk() {
   const [foreground, setForeground] = useState(true);
   const latest = useRef<Position | null>(null);
   const stopping = useRef(false);
+  const autoShareAttempt = useRef(0);
   const selectedRoute = result?.routes.find(r => r.id === selectedId) ?? result?.routes[0] ?? null;
   useEffect(() => {
     const update = () => setForeground(Platform.OS === "web" ? !document.hidden : AppState.currentState !== "background" && AppState.currentState !== "inactive");
@@ -180,6 +182,7 @@ export function useWalk() {
   }
   async function startTrip() {
     if (!selectedRoute || busy) return;
+    const shareAttempt = ++autoShareAttempt.current;
     setBusy(true); setError(""); setSendError(""); stopping.current = false;
     try {
       const p = demo ? { ...asPoint(selectedRoute.geometry.coordinates[0]), accuracy: 5, timestamp: Date.now() } : await currentPosition();
@@ -193,13 +196,50 @@ export function useWalk() {
         await api.end(next, "arrived");
         throw new Error("Your device couldn't securely save this trip. Enable storage and try again.");
       }
-      setTrip(next); setPhase("walking");
+      setTrip(next); setPhase("walking"); setBusy(false);
       try { await api.location(next, p); } catch (e) { setSendError(message(e)); }
-      setNotice("Walk started. Choose an app contact or share the private link with someone you trust.");
+      // Contact matching can take several requests; it must not block ending the walk.
+      const showAutoShareNotice = (text: string) => {
+        if (autoShareAttempt.current === shareAttempt && !stopping.current) setNotice(text);
+      };
+      try {
+        const result = await autoShareTrip(credentials(next), () => autoShareAttempt.current === shareAttempt && !stopping.current);
+        if (result.status === "cancelled") return;
+        if (result.status === "shared") {
+          showAutoShareNotice(`Walk started. Automatically shared with ${result.sharedCount} matched Safe Walk device${result.sharedCount === 1 ? "" : "s"}.${result.notificationsQueued
+            ? ` ${result.notificationsQueued} push notification${result.notificationsQueued === 1 ? " was" : "s were"} queued; delivery isn't guaranteed.`
+            : " The inboxes were updated, but no push notification was queued."}`);
+        } else if (result.status === "partial") {
+          showAutoShareNotice(`Walk started. Automatically shared with ${result.sharedCount} device${result.sharedCount === 1 ? "" : "s"}, but some matches could not be reached. ${result.error ?? ""}`);
+        } else if (result.status === "failed") {
+          showAutoShareNotice(`Walk started, but automatic sharing failed. Your walk may not appear in matched contacts' inboxes. ${result.error ?? ""}`);
+        } else if (result.status === "off") {
+          showAutoShareNotice("Walk started. Automatic sharing is off; share manually with a trusted person if needed.");
+        } else if (result.status === "no-permission") {
+          showAutoShareNotice("Walk started. Contacts access is off, so this walk was not automatically shared.");
+        } else if (result.status === "unverified") {
+          showAutoShareNotice("Walk started. Verify your device in Contacts before using automatic app sharing.");
+        } else if (result.status === "not-enrolled") {
+          showAutoShareNotice("Walk started. App contact matching isn't enabled on this device, so no automatic share was sent.");
+        } else if (result.status === "no-current-recipients") {
+          showAutoShareNotice("Walk started. No current matched app devices could receive the share.");
+        } else if (result.status === "no-matches") {
+          showAutoShareNotice("Walk started. No matched Safe Walk contacts were found; no automatic share was sent.");
+        } else if (result.status === "demo") {
+          showAutoShareNotice("Demo walk started. Simulated walks aren't automatically shared.");
+        } else if (result.status === "unsupported") {
+          showAutoShareNotice("Walk started. Automatic app matching is available in the iOS and Android app; share the private link here.");
+        } else {
+          showAutoShareNotice("Walk started. Use Contacts to share with app contacts or send the private link.");
+        }
+      } catch (e) {
+        showAutoShareNotice(`Walk started, but automatic sharing couldn't complete. Your walk is still active. ${message(e)}`);
+      }
     } catch (e) { setError(message(e)); } finally { setBusy(false); }
   }
   async function endTrip(status: "arrived" | "help") {
     if (!trip) return;
+    autoShareAttempt.current += 1;
     stopping.current = true;
     setFinishedStatus(status); setPhase("finished");
     const next = { ...trip, pendingEnd: status };
@@ -212,6 +252,7 @@ export function useWalk() {
   }
   function reset() {
     if (trip?.pendingEnd) return;
+    autoShareAttempt.current += 1;
     stopping.current = false; setTrip(null); setResult(null); setPhase("plan"); setError(""); setNotice(""); setSendError(""); setDemo(false);
   }
   return {

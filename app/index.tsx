@@ -163,10 +163,13 @@ export default function Index() {
             <View style={s.chosenRoute}><Eyebrow>YOUR CHOSEN ROUTE</Eyebrow><Text style={s.chosenName}>{route.label} · {formatMinutes(route.durationSeconds)} min</Text><Text style={s.body}>{walk.from?.label} → {walk.to?.label}</Text></View>
             <View style={s.consentCard}>
               <View style={s.consentIcon}><View style={s.consentRing}><View style={s.consentCore} /></View></View>
-              <Text style={s.consentHeadline}>One trusted person, along for the walk.</Text>
-              <Text style={s.consentExact}>Your trusted contact can see your live location until you end the trip.</Text>
+              <Text style={s.consentHeadline}>Your trusted people can follow along.</Text>
+              <Text style={s.consentExact}>{Platform.OS === "web"
+                ? "Anyone you choose to send the private trip link to can see your live location until the trip ends."
+                : "On enrolled devices, the Auto-share setting starts on by default. If it is on, this device is verified, and Contacts access is already granted, each real walk is added to every matched app contact’s inbox at start. You can turn it off in Contacts before starting."}</Text>
               <View style={s.consentRule} />
               <Text style={s.consentLine}>Anyone holding the private link can view it. Share it only with someone you trust.</Text>
+              {Platform.OS !== "web" ? <Text style={s.consentLine}>Safe Walk will not ask for Contacts access when a walk starts. If access is off, there is no automatic share. Contacts without an app match are not messaged. Push is best-effort; turning auto-share off affects future walks only.</Text> : null}
               <Text style={s.consentLine}>Sharing is active only while your trip is active. Location updates while Safe Walk is open in the foreground.</Text>
               <Text style={s.consentLine}>Safe Walk is not a safety guarantee and does not replace calling 911 in an emergency.</Text>
             </View>

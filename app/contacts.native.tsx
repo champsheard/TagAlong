@@ -94,16 +94,23 @@ export default function NativeContacts() {
           </Pressable>
         </View>
         <SectionTitle eyebrow="Optional app contacts" title="Share with a trusted person."
-          subtitle="Safe Walk is account-free. Contacts who opted in and verified a phone or email can receive an in-app trip and live preview. Everyone else can receive a private link." />
+          subtitle="Safe Walk is account-free. Matched, opted-in contacts can receive an in-app trip and live preview. Auto-share is on by default for enrolled devices; change it in Device settings." />
         {c.loading ? <Text style={styles.small}>Loading Safe Walk contacts…</Text> : null}
         {c.error ? <Notice tone="warning">{c.error}</Notice> : null}
         {c.notice ? <Notice>{c.notice}</Notice> : null}
         {c.refreshError ? <Notice tone="warning">Shared trips couldn't refresh. {c.refreshError}</Notice> : null}
         {linkNotice ? <Notice>{linkNotice}</Notice> : null}
 
+        {c.profile ? <View style={common.card}>
+          <Eyebrow>Shared walks</Eyebrow>
+          <Text style={styles.body}>New app shares appear here automatically. Tap one to open its live tracking preview. The inbox refreshes while this screen is open.</Text>
+          {c.inbox.length ? c.inbox.map(item => <InboxRow key={item.shareCode} item={item} onPress={() => openTrip(item)} />)
+            : <Text style={styles.small}>No unexpired walks have been shared with this device.</Text>}
+        </View> : null}
+
         {trip ? <View style={common.card}>
           <Eyebrow>Your active walk</Eyebrow>
-          <Text style={styles.body}>Matched Safe Walk users receive an in-app share. For someone without a match, send the private link through your phone.</Text>
+          <Text style={styles.body}>Matched contacts receive an in-app share automatically when auto-share is on. Contacts without a match are not messaged; send the private link only to someone you choose.</Text>
           <ActionButton title="Share link another way" secondary disabled={!!sharingId}
             onPress={() => shareLink()} style={{ marginTop: 10 }} />
         </View> : null}
@@ -142,7 +149,7 @@ export default function NativeContacts() {
         {verified ? <>
           <View style={common.card}>
             <Eyebrow>Find opted-in Safe Walk users</Eyebrow>
-            <Text style={styles.body}>When you sync, names and raw contact details stay on this phone. Phone and email identifiers are normalized and hashed locally; only the hashes are sent to check for verified, discoverable Safe Walk devices.</Text>
+            <Text style={styles.body}>Names and raw contact details stay on this phone. Phone and email identifiers are normalized and hashed locally; only the hashes are sent to find verified, discoverable Safe Walk devices. When auto-share is on, this check runs again when each real walk starts.</Text>
             <Text style={styles.small}>Country for phone numbers without a + prefix:</Text>
             <TextInput accessibilityLabel="Contact phone-number country code" maxLength={2}
               autoCapitalize="characters" value={country} onChangeText={value => setCountry(value.toUpperCase())}
@@ -166,13 +173,18 @@ export default function NativeContacts() {
 
         {c.profile ? <>
           <View style={common.card}>
-            <Eyebrow>Shared with you</Eyebrow>
-            <Text style={styles.body}>New app shares appear here automatically. Tap one to open its live tracking preview. The inbox refreshes while this screen is open.</Text>
-            {c.inbox.length ? c.inbox.map(item => <InboxRow key={item.shareCode} item={item} onPress={() => openTrip(item)} />)
-              : <Text style={styles.small}>No unexpired trips have been shared with this device.</Text>}
-          </View>
-          <View style={common.card}>
             <Eyebrow>Device settings</Eyebrow>
+            <View style={styles.setting}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.name}>Automatically share new walks</Text>
+                <Text style={styles.small}>{c.profile.autoShare
+                  ? "On by default and currently on. If this device is verified and Contacts access is already granted, each real walk is added to every matched, opted-in contact's inbox. Turning this off affects future walks, not shares in progress."
+                  : "Currently off. New walks are not automatically shared; turning it on applies to future walks only and does not change a share already in progress."}</Text>
+              </View>
+              <Switch accessibilityLabel="Automatically share new walks with matched Safe Walk contacts"
+                value={c.profile.autoShare} disabled={c.busy} onValueChange={c.autoShare} />
+            </View>
+            <Text style={styles.small}>Safe Walk checks locally hashed phone/email identifiers only when Contacts access is already granted; it will not ask for access at walk start. Names and raw contact details stay on this phone. Push notifications are best-effort. Contacts without an app match are not messaged automatically.</Text>
             {verified ? <View style={styles.setting}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.name}>Discoverable to app contacts</Text>

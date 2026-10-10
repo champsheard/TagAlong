@@ -47,7 +47,7 @@ export const api = {
   confirm: (s: InstallationSession, challengeId: string, code: string) =>
     request<InstallationProfile>("/installations/confirm", "POST", { challengeId, code }, s.authToken),
   discover: (s: InstallationSession, hashes: string[]) => request<{ matches: ContactMatch[] }>("/contacts/discover", "POST", { hashes }, s.authToken),
-  updateProfile: (s: InstallationSession, body: { pushToken?: string | null; pushStartToken?: string | null; discoverable?: boolean }) =>
+  updateProfile: (s: InstallationSession, body: { pushToken?: string | null; pushStartToken?: string | null; discoverable?: boolean; autoShare?: boolean }) =>
     request<InstallationProfile>("/installations/me", "PATCH", body, s.authToken),
   forget: (s: InstallationSession) => request<{ ok: boolean }>("/installations/me", "DELETE", undefined, s.authToken),
   inbox: (s: InstallationSession) => request<{ trips: ReceivedTrip[] }>("/inbox", "GET", undefined, s.authToken),
