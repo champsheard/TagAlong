@@ -1,3 +1,4 @@
 - [Safe Walk delivery and privacy](safe-walk-contract.md) — milestone pauses, private links, verified local contact matching, and default-on auto-sharing with a future-walk opt-out.
+- [Safe Walk canvas targeting](safe-walk-canvas-scope.md) — apply visual edits to the selected home or map frame, not a neighboring prototype.
 - [Provider constraints](provider-constraints.md) — public Nominatim requires deliberate search submission, not autocomplete.
 - [Runtime compatibility](runtime-compatibility.md) — Expo Go peer versions and development middleware/watch behavior need explicit compatibility checks.

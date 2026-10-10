@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ArrowDown, ArrowLeft, ArrowRight, Check, Crosshair, MapPin, Navigation, Search, ShieldCheck, UsersRound } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, MapPin, Navigation, Plus, X } from "lucide-react";
+import MapView from "../safe-walk-map/MapView.web";
 import "./_group.css";
 
 type RouteOption = {
@@ -14,250 +15,465 @@ const routes: RouteOption[] = [
   { label: "Quickest", minutes: 15, detail: "The shortest estimated walk", points: "71 / 100" },
 ];
 
+const sanFranciscoCenter = { lat: 37.7793, lng: -122.4192 };
+
 export function Redesigned() {
   const [destination, setDestination] = useState("");
   const [selectedRoute, setSelectedRoute] = useState(0);
   const [view, setView] = useState<"plan" | "routes" | "started">("plan");
+  const [isDemo, setIsDemo] = useState(false);
+  const [showValidation, setShowValidation] = useState(false);
+  const [contactsOpen, setContactsOpen] = useState(false);
 
   const search = () => {
-    if (destination.trim()) {
-      setView("routes");
+    if (!destination.trim()) {
+      setShowValidation(true);
+      return;
     }
+    setShowValidation(false);
+    setIsDemo(false);
+    setView("routes");
+  };
+
+  const compareRoutes = () => {
+    if (!destination.trim()) {
+      setShowValidation(true);
+      return;
+    }
+    setShowValidation(false);
+    setIsDemo(false);
+    setView("routes");
+  };
+
+  const showDemo = () => {
+    setDestination("");
+    setShowValidation(false);
+    setIsDemo(true);
+    setView("routes");
+  };
+
+  const returnToPlan = () => {
+    setView("plan");
+    setIsDemo(false);
   };
 
   return (
-    <main className="sw-shell">
-      <header className="sw-header">
+    <main className="sw-screen">
+      <div className="sw-map-layer" aria-label="OpenStreetMap map centered on San Francisco">
+        <MapView center={sanFranciscoCenter} />
+      </div>
+
+      <header className="sw-topbar">
         <div className="sw-brand">
-          <div className="sw-brand-mark" aria-hidden="true"><span /></div>
-          <div>
-            <div className="sw-brand-name">safe walk</div>
-            <div className="sw-brand-caption">A little more at ease</div>
+          <div className="sw-mark" aria-hidden="true"><span>SW</span></div>
+          <div className="sw-brand-copy">
+            <strong>Safe Walk</strong>
+            <span>A steadier way home</span>
           </div>
         </div>
-        <div className="sw-contact-button" aria-label="Your trusted people">
-          <UsersRound size={17} strokeWidth={1.7} /><span>People</span>
-        </div>
+        <button
+          className="sw-contacts"
+          type="button"
+          aria-expanded={contactsOpen}
+          onClick={() => setContactsOpen((open) => !open)}
+        >
+          {contactsOpen ? <X size={15} /> : <Plus size={15} />}
+          <span>Contacts</span>
+        </button>
+        {contactsOpen && (
+          <aside className="sw-contacts-popover">
+            <strong>Your trusted people</strong>
+            <p>Choose who can follow a walk when you decide to share.</p>
+            <button type="button" onClick={() => setContactsOpen(false)}>Got it</button>
+          </aside>
+        )}
       </header>
 
-      <section className="sw-map" aria-label="A quiet map preview">
-        <div className="sw-map-wash" />
-        <div className="sw-map-block block-a" /><div className="sw-map-block block-b" />
-        <div className="sw-map-block block-c" /><div className="sw-map-block block-d" />
-        <div className="sw-map-park" />
-        <svg className="sw-route-drawing" viewBox="0 0 390 286" preserveAspectRatio="none" aria-hidden="true">
-          <path d="M53 225 C92 218 97 186 133 185 S176 208 195 175 S230 141 246 142 S278 159 298 119 S331 81 350 68" className="route-shadow" />
-          <path d="M53 225 C92 218 97 186 133 185 S176 208 195 175 S230 141 246 142 S278 159 298 119 S331 81 350 68" className="route-line" />
-        </svg>
-        <div className="sw-map-pin sw-start-pin"><span /></div>
-        <div className="sw-map-pin sw-end-pin"><MapPin size={15} fill="currentColor" strokeWidth={1.5} /></div>
-        <div className="sw-map-current"><Crosshair size={15} /></div>
-        <div className="sw-map-scale"><span />Illustration · not to scale</div>
-        <div className="sw-locate" aria-hidden="true"><Crosshair size={17} /></div>
-        <div className="sw-map-glass">
-          <span className="sw-live-dot" />
-          <span>{view === "started" ? "Walk in progress" : "A route, at a glance"}</span>
+      <section className={`sw-sheet ${view !== "plan" ? "sw-sheet-expanded" : ""}`} aria-label="Plan a walk">
+        <div className="sw-sheet-scroll">
+          <div className="sw-handle" aria-hidden="true"><span /></div>
+          {view === "started" ? (
+            <section className="sw-started">
+              <div className="sw-started-icon"><Check size={19} /></div>
+              <div className="sw-kicker">{isDemo ? "SAMPLE DEMO" : "WALK SETUP"}</div>
+              <h1>{isDemo ? "Demo only." : "Ready when you are."}</h1>
+              <p>{isDemo ? "This is a sample interaction, not a real route or live walk." : "Your route choice is ready. Nothing is shared unless you choose to start sharing."}</p>
+              <div className="sw-route-summary"><Navigation size={16} /><span>{routes[selectedRoute].label}</span><b>{routes[selectedRoute].minutes} min · sample</b></div>
+              <button className="sw-secondary" type="button" onClick={returnToPlan}>Back to planning</button>
+            </section>
+          ) : view === "routes" ? (
+            <section className="sw-route-screen">
+              <div className="sw-route-topline">
+                <button className="sw-back" type="button" onClick={returnToPlan}><ArrowLeft size={15} /> Back</button>
+                <span className="sw-map-pill"><i /> MAP</span>
+              </div>
+              <div className="sw-kicker">{isDemo ? "SAMPLE ONLY" : "PLAN A WALK"}</div>
+              <h1>{isDemo ? "A sample comparison." : "Choose a route."}</h1>
+              <p className="sw-route-lede">{isDemo ? "Illustrative options only. No destination, route, or live walk is being shown." : `Options for ${destination}. Compare before you set off.`}</p>
+              <div className="sw-route-heading"><span>ROUTE OPTIONS</span><span>ESTIMATES</span></div>
+              <p className="sw-data-note">Illustrative values only · sample walk times and lighting estimates.</p>
+              {routes.map((route, index) => (
+                <button className={`sw-route-option ${selectedRoute === index ? "is-selected" : ""}`} key={route.label} type="button" onClick={() => setSelectedRoute(index)}>
+                  <span className="sw-route-radio">{selectedRoute === index && <span />}</span>
+                  <span className="sw-route-info"><b>{route.label}</b><small>{route.detail}</small></span>
+                  <span className="sw-route-metrics"><b>{route.minutes}<small> min</small></b><small>{route.points} light estimate</small></span>
+                </button>
+              ))}
+              <p className="sw-estimate-note">Lighting reflects available data, not a guarantee about current street conditions.</p>
+              <button className="sw-compare sw-start-action" type="button" onClick={() => setView("started")}>
+                {isDemo ? "Continue sample" : "Choose this route"} <ArrowRight size={16} />
+              </button>
+              <button className="sw-demo-reset" type="button" onClick={returnToPlan}>Plan a walk instead</button>
+            </section>
+          ) : (
+            <>
+              <div className="sw-intro">
+                <div className="sw-kicker">PLAN A WALK</div>
+                <div className="sw-title-row">
+                  <h1>Where to tonight?</h1>
+                  <span className="sw-map-pill"><i /> MAP</span>
+                </div>
+                <p>Search a place to put it on the map. We’ll compare<br className="sw-desktop-break" /> the routes.</p>
+              </div>
+
+              <div className="sw-place-tiles">
+                <div className="sw-place-tile">
+                  <span className="sw-tile-label"><i className="sw-origin-dot" /> Start</span>
+                  <strong>Current location</strong>
+                </div>
+                <div className="sw-place-tile sw-destination-tile">
+                  <span className="sw-tile-label"><i className="sw-destination-dot" /> Destination</span>
+                  <strong>{destination.trim() || "Add a place"}</strong>
+                </div>
+              </div>
+
+              <label className="sw-destination-label" htmlFor="sw-destination">
+                Where are you going? <span>· REQUIRED</span>
+              </label>
+              <div className={`sw-search-field ${showValidation ? "sw-field-error" : ""}`}>
+                <MapPin size={16} aria-hidden="true" />
+                <input
+                  id="sw-destination"
+                  value={destination}
+                  onChange={(event) => {
+                    setDestination(event.target.value);
+                    setShowValidation(false);
+                  }}
+                  onKeyDown={(event) => { if (event.key === "Enter") search(); }}
+                  placeholder="Search street, place, or landmark"
+                  aria-describedby={showValidation ? "sw-validation" : undefined}
+                />
+                {destination && <button type="button" className="sw-clear" onClick={() => setDestination("")} aria-label="Clear destination"><X size={14} /></button>}
+              </div>
+              {showValidation && <p className="sw-validation" id="sw-validation">Add a destination to compare routes.</p>}
+
+              <div className="sw-search-row">
+                <span aria-hidden="true" />
+                <button className="sw-search-button" type="button" onClick={search}>Search</button>
+              </div>
+
+              <div className="sw-actions-row">
+                <button className="sw-compare" type="button" onClick={compareRoutes}>Compare routes</button>
+                <button className="sw-demo" type="button" onClick={showDemo}>Demo</button>
+              </div>
+
+              <p className="sw-disclosure">You choose when to share, and when the trip ends.</p>
+            </>
+          )}
         </div>
       </section>
 
-      <div className="sw-page-content">
-        {view === "started" ? (
-          <section className="sw-started-panel">
-            <div className="sw-started-icon"><Check size={21} /></div>
-            <p className="sw-kicker">YOUR WALK IS LIVE</p>
-            <h1>You’re on your way.</h1>
-            <p className="sw-lede">Your chosen route is ready. Sharing stays on only while this walk is active.</p>
-            <div className="sw-live-route"><Navigation size={17} /><span>{routes[selectedRoute].label}</span><b>{routes[selectedRoute].minutes} min · sample</b></div>
-            <button className="sw-secondary-button" type="button" onClick={() => setView("plan")}>Back to planning</button>
-          </section>
-        ) : (
-          <>
-            <section className="sw-intro">
-              <div className="sw-kicker">{view === "routes" ? "YOUR ROUTE" : "A MOMENT TO PLAN"}</div>
-              <h1>{view === "routes" ? "Choose the way." : "Where are you headed?"}</h1>
-              <p>{view === "routes" ? "A clear view of your options, before you set off." : "Pick a destination. We’ll help you compare a couple of ways there."}</p>
-            </section>
-
-            {view === "plan" ? (
-              <section className="sw-search-card">
-                <div className="sw-origin-row">
-                  <div className="sw-origin-symbol"><Crosshair size={15} /></div>
-                  <div className="sw-origin-copy"><span>STARTING FROM</span><strong>Current location</strong></div>
-                  <span className="sw-change-link">LOCATION</span>
-                </div>
-                <div className="sw-search-divider"><span /></div>
-                <label className="sw-destination-label" htmlFor="destination">DESTINATION</label>
-                <div className="sw-input-row">
-                  <MapPin size={18} strokeWidth={1.7} />
-                  <input
-                    id="destination"
-                    value={destination}
-                    onChange={(event) => setDestination(event.target.value)}
-                    onKeyDown={(event) => { if (event.key === "Enter") search(); }}
-                    placeholder="Search a place or address"
-                  />
-                  {destination && <button className="sw-clear" onClick={() => setDestination("")} type="button" aria-label="Clear destination">×</button>}
-                </div>
-                <button className="sw-search-button" type="button" onClick={search} disabled={!destination.trim()}>
-                  <Search size={16} /><span>Search</span><ArrowRight size={16} />
-                </button>
-                <p className="sw-search-hint">Search happens when you choose Search. No suggestions while you type.</p>
-              </section>
-            ) : (
-              <section className="sw-options">
-                <button className="sw-edit-trip" type="button" onClick={() => setView("plan")}><ArrowLeft size={15} /> Edit places</button>
-                <div className="sw-trip-summary"><span>FROM</span><b>Current location</b><ArrowDown size={14} /><span>TO</span><b>{destination}</b></div>
-                <div className="sw-route-heading"><span>ROUTE OPTIONS</span><span>ESTIMATES</span></div>
-                <p className="sw-data-note">Illustrative values only · sample walk times and lighting estimates.</p>
-                {routes.map((route, index) => (
-                  <button className={`sw-route-option ${selectedRoute === index ? "is-selected" : ""}`} key={route.label} type="button" onClick={() => setSelectedRoute(index)}>
-                    <span className="sw-route-radio">{selectedRoute === index && <span />}</span>
-                    <span className="sw-route-info"><b>{route.label}</b><small>{route.detail}</small></span>
-                    <span className="sw-route-metrics"><b>{route.minutes}<small> min</small></b><small>{route.points} light estimate</small></span>
-                  </button>
-                ))}
-                <p className="sw-estimate-note">Lighting reflects available data, not a guarantee about current street conditions.</p>
-              </section>
-            )}
-
-            <section className="sw-share-note">
-              <div className="sw-shield"><ShieldCheck size={18} strokeWidth={1.7} /></div>
-              <div><strong>You choose when to share.</strong><p>When you start, people you choose can follow your live location until the walk ends.</p></div>
-            </section>
-
-            {view === "routes" && (
-              <button className="sw-start-button" type="button" onClick={() => setView("started")}>
-                Start this walk <ArrowRight size={17} />
-              </button>
-            )}
-
-            <section className="sw-shared">
-              <div className="sw-section-heading">
-                <div><span className="sw-kicker">A QUIET CHECK-IN</span><h2>Shared walks</h2></div>
-              </div>
-              <div className="sw-shared-empty">
-                <div className="sw-empty-mark" aria-hidden="true"><span /></div>
-                <div><strong>No shared walks right now</strong><p>Active walks appear here only when someone shares one with you.</p></div>
-              </div>
-            </section>
-          </>
-        )}
-
-        <footer className="sw-footer"><span>SAFE WALK</span><span>Move at your own pace.</span></footer>
-      </div>
       <style>{`
-        .sw-shell {
-          --forest: #203d34; --forest-deep: #172e28; --moss: #77886c; --citron: #c4d38b;
-          --paper: #fbfaf5; --oat: #f1f0e8; --line: #dcded2; --muted: #69776d; --soft: #e8ebdf;
-          min-height: 100dvh; width: 100%; overflow: hidden; background: var(--oat); color: var(--forest);
-          font-family: 'DM Sans', 'Plus Jakarta Sans', sans-serif; padding-bottom: 28px;
+        .sw-screen {
+          --forest: #193c32;
+          --forest-dark: #12362d;
+          --sage: #8fa39b;
+          --sage-dark: #71877d;
+          --paper: #fbfaf5;
+          --line: #d2d2c8;
+          --muted: #68736c;
+          position: relative;
+          width: 100%;
+          height: 100dvh;
+          min-height: 600px;
+          overflow: hidden;
+          background: #e9e9df;
+          color: var(--forest);
+          font-family: "DM Sans", "Plus Jakarta Sans", sans-serif;
         }
-        .sw-shell * { box-sizing: border-box; }
-        .sw-header { height: 74px; display: flex; align-items: center; justify-content: space-between; padding: 0 23px; background: var(--paper); }
-        .sw-brand { display: flex; align-items: center; gap: 10px; }
-        .sw-brand-mark { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid #9aaa85; border-radius: 50%; position: relative; }
-        .sw-brand-mark:before, .sw-brand-mark:after { content:''; position:absolute; width: 12px; height: 12px; border:1px solid var(--moss); border-radius:50%; }
-        .sw-brand-mark:after { width: 4px; height: 4px; background: var(--moss); border:0; }
-        .sw-brand-name { font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 18px; letter-spacing: -.45px; line-height: 1.05; }
-        .sw-brand-caption { font-size: 10px; letter-spacing: .04em; color: var(--muted); margin-top: 3px; }
-        .sw-contact-button { height: 38px; border: 1px solid var(--line); border-radius: 99px; padding: 0 13px; display:flex; align-items:center; gap:7px; color:var(--forest); background:transparent; font:600 12px 'DM Sans',sans-serif; }
-        .sw-map { height: 294px; position: relative; overflow: hidden; background: #e6e8dc; }
-        .sw-map-wash { position:absolute; inset:0; opacity:.7; background:
-          linear-gradient(26deg,transparent 0 18%,#d8ddce 18.3% 20%,transparent 20.3% 61%,#d9ddcf 61.4% 63%,transparent 63.3%),
-          linear-gradient(107deg,transparent 0 22%,#faf9f1 22.4% 27%,transparent 27.4% 66%,#faf9f1 66.4% 71%,transparent 71.4%),
-          repeating-linear-gradient(0deg,transparent 0 49px,rgba(255,255,255,.67) 50px 54px,transparent 55px 90px),
-          repeating-linear-gradient(90deg,transparent 0 71px,rgba(255,255,255,.66) 72px 77px,transparent 78px 123px); }
-        .sw-map-block { position:absolute; background:#dce1d3; border:1px solid rgba(255,255,255,.72); border-radius:4px; transform:rotate(-9deg); }
-        .block-a { left:6%; top:12%; width:16%; height:24%; }.block-b { right:10%; top:20%; width:22%; height:21%; }
-        .block-c { left:34%; bottom:5%; width:20%; height:21%; }.block-d { right:8%; bottom:2%; width:16%; height:20%; }
-        .sw-map-park { position:absolute; left:26%; top:19%; width:28%; height:38%; border-radius:44% 32% 39% 28%; background:#cbd8be; border:1px solid rgba(255,255,255,.9); display:grid; place-items:center; transform:rotate(-8deg); }
-        .sw-route-drawing { position:absolute; inset:0; width:100%; height:100%; z-index:2; }
-        .route-shadow { fill:none; stroke:#f5f4ec; stroke-width:9; stroke-linecap:round; stroke-linejoin:round; }
-        .route-line { fill:none; stroke:#687f62; stroke-width:3; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:1 0; }
-        .sw-map-pin { position:absolute; z-index:3; display:grid; place-items:center; }
-        .sw-start-pin { left:12.6%; top:72%; width:18px; height:18px; background:var(--paper); border:2px solid #687f62; border-radius:50%; }
-        .sw-start-pin span { width:6px;height:6px;background:#687f62;border-radius:50%; }
-        .sw-end-pin { right:8%; top:17%; width:30px;height:30px;background:var(--forest);color:var(--citron);border:3px solid var(--paper);border-radius:50% 50% 50% 5px; transform:rotate(-45deg); }
-        .sw-end-pin svg { transform:rotate(45deg); }
-        .sw-map-current { position:absolute; z-index:3; left:30%; bottom:22%; color:#687f62; background:var(--paper); border-radius:50%; width:26px;height:26px; display:grid;place-items:center;box-shadow:0 2px 8px #53665a22; }
-        .sw-map-scale { position:absolute; bottom:13px; left:19px; display:flex;align-items:center;gap:7px;color:#6e7b70;font-size:10px; z-index:4; }
-        .sw-map-scale span { width:19px;height:2px;background:#819078; }
-        .sw-locate { position:absolute; right:17px; bottom:14px; width:38px;height:38px;border-radius:50%;border:1px solid #d5d9cc;background:var(--paper);color:var(--forest);display:grid;place-items:center;z-index:4; }
-        .sw-map-glass { position:absolute; top:16px; left:16px; z-index:4; display:flex;align-items:center;gap:8px;padding:8px 11px;background:#fbfaf5ed;border:1px solid #ffffffa8;border-radius:99px;color:var(--forest);font-size:10px;font-weight:600; }
-        .sw-live-dot { width:7px;height:7px;background:#869776;border-radius:50%; }
-        .sw-page-content { max-width:520px; margin:0 auto; padding:0 22px; }
-        .sw-intro { padding:25px 0 17px; }
-        .sw-kicker { font:700 9px 'DM Sans',sans-serif; color:#75836c; letter-spacing:.17em; }
-        .sw-intro h1, .sw-started-panel h1 { font:500 32px/1.08 'Fraunces', Georgia, serif; letter-spacing:-.85px; margin:7px 0 7px; color:var(--forest); }
-        .sw-intro p, .sw-lede { font-size:13px; line-height:1.55; color:var(--muted); margin:0; }
-        .sw-search-card { background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:15px 15px 12px; box-shadow:0 4px 12px #273c3010; }
-        .sw-origin-row { display:flex;align-items:center;gap:11px; }
-        .sw-origin-symbol { width:30px;height:30px;border-radius:50%;background:#eef0e7;display:grid;place-items:center;color:#76876e; }
-        .sw-origin-copy { display:flex; flex:1; flex-direction:column; gap:3px; }
-        .sw-origin-copy span, .sw-destination-label { font-size:8px; letter-spacing:.14em; color:#828b7e; font-weight:700; }
-        .sw-origin-copy strong { font-size:12px; font-weight:600; }
-        .sw-change-link { border:0;background:none;color:#697c5e;font:600 11px 'DM Sans',sans-serif;padding:8px 2px; }
-        .sw-search-divider { height:22px; margin-left:14px; border-left:1px dashed #b7c0ae; position:relative; }
-        .sw-search-divider span { position:absolute; width:5px;height:5px;border-radius:50%;background:#b8c58e;left:-3px;bottom:0; }
-        .sw-destination-label { display:block; margin:1px 0 7px 41px; }
-        .sw-input-row { min-height:46px; display:flex;align-items:center;gap:10px;border:1px solid #c9cec0;border-radius:10px;padding:0 12px;color:#74836b;background:#fffefa; }
-        .sw-input-row:focus-within { border-color:#869876; box-shadow:0 0 0 3px #e7ebdf; }
-        .sw-input-row input { border:0;outline:0;min-width:0;flex:1;background:transparent;color:var(--forest);font:500 13px 'DM Sans',sans-serif; }
-        .sw-input-row input::placeholder { color:#9a9f95; }
-        .sw-clear { border:0;background:none;font-size:20px;color:#778276;line-height:1; }
-        .sw-search-button { height:43px;width:100%;display:flex;align-items:center;justify-content:center;gap:9px;margin-top:10px;background:var(--forest);color:var(--paper);border:0;border-radius:10px;font:600 12px 'DM Sans',sans-serif;transition:opacity .2s, transform .2s; }
-        .sw-search-button svg:last-child { margin-left:auto;margin-right:6px; }
-        .sw-search-button svg:first-child { margin-left:auto; }
-        .sw-search-button:disabled { opacity:.45; }
-        .sw-search-button:not(:disabled):active, .sw-start-button:active { transform:translateY(1px); }
-        .sw-search-hint { margin:8px 0 0; font-size:9px; line-height:1.4; color:#879084; text-align:center; }
-        .sw-share-note { display:flex; gap:11px; align-items:flex-start; padding:13px 13px; margin-top:13px; border:1px solid #d8decc; border-radius:13px; background:#edf0e5; }
-        .sw-shield { width:29px;height:29px;flex:none;display:grid;place-items:center;border-radius:50%;color:#53694f;background:#dfe5d4; }
-        .sw-share-note strong { display:block;font-size:11px;line-height:1.3;font-weight:700; }
-        .sw-share-note p { margin:4px 0 0; max-width:335px;font-size:10px;line-height:1.5;color:#647368; }
-        .sw-shared { padding-top:21px; }
-        .sw-section-heading { display:flex;justify-content:space-between;align-items:end;margin-bottom:9px; }
-        .sw-section-heading h2 { font:500 21px/1.1 'Fraunces',Georgia,serif;margin:4px 0 0;letter-spacing:-.3px; }
-        .sw-shared-empty { display:flex;align-items:center;gap:12px;border:1px solid #dfe1d7;border-radius:13px;background:#f7f6ef;padding:14px 13px; }
-        .sw-empty-mark { width:32px;height:32px;flex:none;display:grid;place-items:center;border:1px solid #cbd2c3;border-radius:50%; }
-        .sw-empty-mark span { width:8px;height:8px;border:1.5px solid #849178;border-radius:50%; }
-        .sw-shared-empty strong { display:block;font-size:11px;font-weight:700;color:#31483b; }
-        .sw-shared-empty p { margin:4px 0 0;font-size:10px;line-height:1.45;color:#7a8579; }
-        .sw-footer { display:flex;justify-content:space-between;border-top:1px solid #dfe0d6;margin-top:22px;padding-top:12px;color:#899187;font-size:8px;letter-spacing:.1em; }
-        .sw-footer span:last-child { letter-spacing:0;font-size:9px; }
-        .sw-options { padding:3px 0 0; }
-        .sw-edit-trip { display:flex;align-items:center;gap:6px;padding:6px 0;border:0;background:none;color:#60745a;font:600 11px 'DM Sans',sans-serif; }
-        .sw-trip-summary { display:grid;grid-template-columns:1fr auto;gap:3px 8px;background:#e9ece2;border-radius:12px;padding:11px 13px;margin:5px 0 14px; }
-        .sw-trip-summary span { font-size:8px;letter-spacing:.12em;color:#798675;font-weight:700; }
-        .sw-trip-summary b { font-size:11px;font-weight:600; }
-        .sw-trip-summary svg { grid-column:2;grid-row:1 / 3;align-self:center;color:#819073; }
-        .sw-route-heading { display:flex;justify-content:space-between;color:#7f897d;font-size:8px;letter-spacing:.12em;font-weight:700;margin:0 2px 7px; }
-        .sw-data-note { margin:0 2px 8px;font-size:9px;line-height:1.4;color:#788477; }
-        .sw-route-option { width:100%;display:flex;align-items:center;gap:10px;text-align:left;border:1px solid var(--line);background:var(--paper);border-radius:12px;padding:11px 10px;margin:0 0 7px;color:var(--forest); }
-        .sw-route-option.is-selected { border-color:#738569;background:#f5f6ef;box-shadow:inset 0 0 0 1px #738569; }
-        .sw-route-radio { width:16px;height:16px;border:1.5px solid #9aa592;border-radius:50%;display:grid;place-items:center;flex:none; }
-        .is-selected .sw-route-radio { border-color:#536c4b; }.sw-route-radio span { width:8px;height:8px;background:#536c4b;border-radius:50%; }
-        .sw-route-info { flex:1;display:flex;flex-direction:column;gap:4px; }
-        .sw-route-info b { font-size:12px; }.sw-route-info small { font-size:9px;color:#7b867c; }
-        .sw-route-metrics { display:flex;flex-direction:column;align-items:end;gap:3px; }
-        .sw-route-metrics b { font:500 19px 'Fraunces',Georgia,serif; }.sw-route-metrics b small { font:500 9px 'DM Sans',sans-serif; }
-        .sw-route-metrics>small { font-size:8px;color:#788477; }
-        .sw-estimate-note { font-size:9px;line-height:1.5;color:#7c857a;margin:7px 1px 0; }
-        .sw-start-button { width:100%;height:47px;margin-top:12px;display:flex;align-items:center;justify-content:center;gap:12px;border:0;border-radius:11px;background:var(--forest);color:var(--paper);font:600 12px 'DM Sans',sans-serif; }
-        .sw-started-panel { padding:27px 0 12px; }
-        .sw-started-icon { width:42px;height:42px;display:grid;place-items:center;background:#e2e9d8;color:#53694c;border-radius:50%;margin-bottom:15px; }
-        .sw-started-panel h1 { margin-top:7px; }.sw-lede { max-width:350px; }
-        .sw-live-route { display:flex;align-items:center;gap:9px;background:#e9ece2;padding:13px;border-radius:11px;margin-top:18px;font-size:12px; }
-        .sw-live-route svg { color:#687d5d; }.sw-live-route b { margin-left:auto;font-size:11px; }
-        .sw-secondary-button { margin-top:14px;background:transparent;border:1px solid #cdd2c4;border-radius:10px;padding:11px 14px;color:var(--forest);font:600 11px 'DM Sans',sans-serif; }
-        @media (min-width: 700px) {
-          .sw-shell { min-height:100vh;padding-bottom:40px; }
-          .sw-header { padding-left:max(32px,calc((100vw - 850px)/2));padding-right:max(32px,calc((100vw - 850px)/2)); }
-          .sw-map { height:340px; }
-          .sw-page-content { padding:0 30px; }
-          .sw-intro { padding-top:30px; }
+        .sw-screen * { box-sizing: border-box; }
+        .sw-map-layer {
+          position: absolute;
+          inset: 0 0 58% 0;
+          overflow: hidden;
+          background: #e8e8de;
         }
-        @media (prefers-reduced-motion: reduce) { .sw-search-button { transition:none; } }
+        .sw-map-layer > div { width: 100%; height: 100%; }
+        .sw-topbar {
+          position: absolute;
+          z-index: 20;
+          top: 9px;
+          left: 17px;
+          right: 18px;
+          height: 51px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          pointer-events: none;
+        }
+        .sw-brand, .sw-contacts, .sw-contacts-popover { pointer-events: auto; }
+        .sw-brand {
+          display: flex;
+          align-items: center;
+          gap: 9px;
+          min-width: 180px;
+          height: 50px;
+          padding: 4px 13px 4px 10px;
+          border: 1px solid rgba(221, 221, 209, .85);
+          border-radius: 14px;
+          background: rgba(251, 250, 245, .96);
+          box-shadow: 0 2px 8px rgba(45, 55, 43, .12);
+        }
+        .sw-mark {
+          width: 34px;
+          height: 34px;
+          flex: none;
+          display: grid;
+          place-items: center;
+          border-radius: 50%;
+          border: 1px solid #9aab8b;
+          background: #203f35;
+          color: #f5f4ea;
+          box-shadow: inset 0 0 0 3px rgba(251, 250, 245, .1);
+        }
+        .sw-mark span { font: 600 11px/1 "DM Sans", sans-serif; letter-spacing: -.04em; }
+        .sw-brand-copy { display: flex; flex-direction: column; gap: 2px; }
+        .sw-brand-copy strong { font-size: 15px; line-height: 1; font-weight: 750; letter-spacing: -.035em; }
+        .sw-brand-copy span { font-size: 10px; line-height: 1.15; font-weight: 600; color: #667168; }
+        .sw-contacts {
+          min-width: 104px;
+          height: 43px;
+          border: 0;
+          border-radius: 15px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          background: var(--forest);
+          color: #fbfaf5;
+          box-shadow: 0 2px 8px rgba(35, 53, 42, .14);
+          font: 700 12px "DM Sans", sans-serif;
+          letter-spacing: .01em;
+          cursor: pointer;
+        }
+        .sw-contacts svg { color: #bbd477; stroke-width: 2.4; }
+        .sw-contacts-popover {
+          position: absolute;
+          right: 0;
+          top: 54px;
+          width: 224px;
+          padding: 14px;
+          border: 1px solid #d8d8cd;
+          border-radius: 13px;
+          background: var(--paper);
+          box-shadow: 0 9px 24px rgba(36, 48, 39, .16);
+          font-size: 12px;
+        }
+        .sw-contacts-popover strong { font-size: 12px; }
+        .sw-contacts-popover p { margin: 6px 0 12px; color: var(--muted); line-height: 1.45; }
+        .sw-contacts-popover button {
+          border: 0; border-radius: 8px; padding: 7px 12px;
+          color: #fff; background: var(--forest); font: 600 11px "DM Sans", sans-serif;
+        }
+        .sw-sheet {
+          position: absolute;
+          z-index: 10;
+          inset: 42% 0 0;
+          border-radius: 24px 24px 0 0;
+          background: var(--paper);
+          box-shadow: 0 -3px 18px rgba(37, 48, 40, .12);
+        }
+        .sw-sheet-scroll {
+          height: 100%;
+          overflow-y: auto;
+          overscroll-behavior: contain;
+          padding: 0 27px 20px;
+          scrollbar-width: thin;
+          scrollbar-color: #d9dbd1 transparent;
+        }
+        .sw-handle {
+          width: 100%;
+          height: 56px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .sw-handle span { width: 38px; height: 4px; border-radius: 8px; background: #c8cec0; }
+        .sw-kicker {
+          color: #73825d;
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: .12em;
+          line-height: 1;
+        }
+        .sw-intro { margin-top: 8px; }
+        .sw-title-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .sw-intro h1, .sw-route-screen h1, .sw-started h1 {
+          margin: 10px 0 3px;
+          color: var(--forest);
+          font: 750 25px/1.12 "DM Sans", "Plus Jakarta Sans", sans-serif;
+          letter-spacing: -.055em;
+        }
+        .sw-title-row h1 { margin: 9px 0 3px; }
+        .sw-intro > p {
+          margin: 0;
+          color: #606c64;
+          font-size: 14px;
+          line-height: 1.42;
+          letter-spacing: -.015em;
+        }
+        .sw-map-pill {
+          height: 27px;
+          flex: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 0 11px;
+          border-radius: 99px;
+          background: #e9ecdf;
+          color: #3c5141;
+          font-size: 9px;
+          font-weight: 800;
+          letter-spacing: .1em;
+        }
+        .sw-map-pill i { width: 7px; height: 7px; border-radius: 50%; background: #7b9467; }
+        .sw-place-tiles {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+          margin-top: 15px;
+        }
+        .sw-place-tile {
+          height: 53px;
+          padding: 7px 10px;
+          border: 1px solid #deddd3;
+          border-radius: 14px;
+          background: #f4f2ea;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          gap: 5px;
+        }
+        .sw-destination-tile { border-color: #7b8b69; background: #f3f4e9; }
+        .sw-tile-label { display: flex; align-items: center; gap: 6px; font-size: 10px; line-height: 1; font-weight: 750; letter-spacing: .04em; color: #4d5c51; }
+        .sw-tile-label i { width: 9px; height: 9px; display: inline-block; border-radius: 50%; }
+        .sw-origin-dot { border: 1px solid #718578; background: var(--paper); }
+        .sw-destination-dot { background: #93a873; border: 1px solid #71875c; }
+        .sw-place-tile strong { font-size: 12px; line-height: 1; font-weight: 700; color: #354a3c; }
+        .sw-destination-label {
+          display: block;
+          margin: 15px 0 9px;
+          color: #29483b;
+          font-size: 13px;
+          line-height: 1.15;
+          font-weight: 800;
+          letter-spacing: .005em;
+        }
+        .sw-destination-label span { letter-spacing: .09em; }
+        .sw-search-field {
+          width: 100%;
+          height: 54px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 0 14px;
+          border: 1px solid #c9c9be;
+          border-radius: 14px;
+          background: #fdfcf8;
+          color: #829087;
+        }
+        .sw-search-field:focus-within { border-color: #829488; box-shadow: 0 0 0 3px #e9ece3; }
+        .sw-search-field input {
+          width: 100%; min-width: 0; border: 0; outline: 0;
+          background: transparent; color: var(--forest);
+          font: 500 16px "DM Sans", sans-serif; letter-spacing: -.02em;
+        }
+        .sw-search-field input::placeholder { color: #898d86; opacity: 1; }
+        .sw-clear { display: grid; place-items: center; padding: 4px; border: 0; background: transparent; color: #718078; cursor: pointer; }
+        .sw-field-error { border-color: #9f6c5f; }
+        .sw-validation { margin: 5px 0 0; color: #8c493f; font-size: 11px; }
+        .sw-search-row { height: 60px; display: flex; align-items: center; justify-content: space-between; }
+        .sw-search-button {
+          width: 87px;
+          height: 45px;
+          border: 0;
+          border-radius: 12px;
+          background: #91a39a;
+          color: #fbfaf5;
+          font: 750 14px "DM Sans", sans-serif;
+          cursor: pointer;
+          transition: transform .15s, background .15s;
+        }
+        .sw-search-button:hover { background: #7f968b; }
+        .sw-actions-row { display: grid; grid-template-columns: 1fr 70px; gap: 9px; margin-top: 10px; }
+        .sw-compare, .sw-demo {
+          height: 54px;
+          border: 0;
+          border-radius: 14px;
+          font: 750 15px "DM Sans", sans-serif;
+          cursor: pointer;
+          transition: transform .15s, background .15s;
+        }
+        .sw-compare { background: #91a39a; color: #fbfaf5; }
+        .sw-compare:hover { background: #7f968b; }
+        .sw-demo { border: 1px solid #d5d7ca; background: #eef0e4; color: #394d3e; font-size: 13px; }
+        .sw-demo:hover { background: #e4e8d9; }
+        .sw-compare:active, .sw-demo:active, .sw-search-button:active { transform: translateY(1px); }
+        .sw-disclosure { margin: 11px 0 0; color: #71766d; text-align: center; font-size: 12px; line-height: 1.4; letter-spacing: -.005em; }
+        .sw-sheet-expanded .sw-sheet-scroll { padding-bottom: 26px; }
+        .sw-route-screen { padding-top: 0; }
+        .sw-route-topline { display: flex; align-items: center; justify-content: space-between; margin: -2px 0 19px; }
+        .sw-back { border: 0; background: none; display: inline-flex; align-items: center; gap: 5px; padding: 6px 0; color: #617362; font: 650 11px "DM Sans", sans-serif; cursor: pointer; }
+        .sw-route-screen h1 { margin-top: 9px; }
+        .sw-route-lede { margin: 6px 0 15px; color: #68736c; font-size: 13px; line-height: 1.45; }
+        .sw-route-heading { display: flex; justify-content: space-between; margin: 2px 1px 5px; color: #7c8779; font-size: 9px; font-weight: 800; letter-spacing: .12em; }
+        .sw-data-note { margin: 0 1px 9px; color: #7b847a; font-size: 10px; line-height: 1.4; }
+        .sw-route-option { width: 100%; display: flex; align-items: center; gap: 10px; margin-bottom: 7px; padding: 12px 10px; text-align: left; color: var(--forest); border: 1px solid #d9dacf; border-radius: 13px; background: #fdfcf8; cursor: pointer; }
+        .sw-route-option.is-selected { border-color: #809174; background: #f4f5ed; box-shadow: inset 0 0 0 1px #809174; }
+        .sw-route-radio { width: 16px; height: 16px; flex: none; display: grid; place-items: center; border: 1.5px solid #9ba698; border-radius: 50%; }
+        .sw-route-radio span { width: 8px; height: 8px; border-radius: 50%; background: #5d7657; }
+        .sw-route-info { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+        .sw-route-info b { font-size: 12px; }
+        .sw-route-info small { color: #7a857c; font-size: 9px; }
+        .sw-route-metrics { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+        .sw-route-metrics b { font: 600 19px "DM Sans", sans-serif; }
+        .sw-route-metrics b small { font: 600 9px "DM Sans", sans-serif; }
+        .sw-route-metrics > small { color: #788477; font-size: 8px; }
+        .sw-estimate-note { margin: 8px 1px 10px; color: #788277; font-size: 10px; line-height: 1.45; }
+        .sw-start-action { width: 100%; height: 48px; display: flex; align-items: center; justify-content: center; gap: 9px; font-size: 13px; }
+        .sw-demo-reset { display: block; margin: 9px auto 0; padding: 7px; border: 0; background: none; color: #657469; font: 600 11px "DM Sans", sans-serif; cursor: pointer; }
+        .sw-started { padding-top: 12px; }
+        .sw-started-icon { width: 38px; height: 38px; display: grid; place-items: center; margin-bottom: 15px; border-radius: 50%; background: #e6ecde; color: #5c7555; }
+        .sw-started h1 { margin: 9px 0 6px; }
+        .sw-started > p { margin: 0; color: #69746c; font-size: 13px; line-height: 1.5; }
+        .sw-route-summary { display: flex; align-items: center; gap: 9px; margin-top: 17px; padding: 13px; border-radius: 12px; background: #eef0e7; font-size: 12px; }
+        .sw-route-summary svg { color: #75886c; }
+        .sw-route-summary b { margin-left: auto; font-size: 10px; font-weight: 650; }
+        .sw-secondary { margin-top: 14px; padding: 10px 13px; border: 1px solid #cdd2c5; border-radius: 10px; background: transparent; color: var(--forest); font: 650 11px "DM Sans", sans-serif; cursor: pointer; }
+        @media (max-height: 740px) {
+          .sw-sheet { inset-block-start: 39%; }
+          .sw-sheet-scroll { padding-inline: 23px; }
+          .sw-handle { height: 42px; }
+        }
+        @media (min-width: 600px) {
+          .sw-screen { max-width: 520px; margin-inline: auto; }
+          .sw-topbar { left: 22px; right: 22px; }
+          .sw-sheet { border-radius: 26px 26px 0 0; }
+          .sw-sheet-scroll { padding-inline: 30px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .sw-search-button, .sw-compare, .sw-demo { transition: none; }
+        }
       `}</style>
     </main>
   );
