@@ -7,11 +7,11 @@ Match native peer libraries to Expo Go's bundled versions; do not trust the
 latest versions automatically installed to satisfy optional peers.
 
 **Why:** Expo SDK 57's router installation selected newer Reanimated/Worklets
-peers than the Expo native modules supported. Checking direct Expo dependencies
-alone did not reveal that mismatch.
+peers than the Expo native modules supported. Caret ranges also allowed React
+and react-native-maps to resolve beyond the versions Expo Go expects.
 
-**How to apply:** Inspect Expo's bundled native-module recommendations when
-changing SDK or native dependencies, and pin compatible peers.
+**How to apply:** Run `expo install --check` after package installs or lockfile
+changes, and pin React/native-module versions to Expo's compatible releases.
 
 Keep API forwarding ahead of Expo's single-output SPA fallback.
 

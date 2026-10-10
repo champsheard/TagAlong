@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -25,6 +25,8 @@ export default function Index() {
   const [showStartSearch, setShowStartSearch] = useState(false);
   const [focusedPlace, setFocusedPlace] = useState<{ lat: number; lng: number } | null>(null);
   const [actualPanelHeight, setActualPanelHeight] = useState(height * 0.58);
+  const startAfterConfirmDismiss = useRef(false);
+  const startTripTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mapRoutes = useMemo(() => (walk.phase === "walking" && walk.trip ? [walk.trip.route] : walk.result?.routes ?? []).map(route => ({
     id: route.id, geometry: route.geometry, color: route.id === walk.selectedRoute?.id ? routeColors.selected : routeColors.fastest,
   })), [walk.result, walk.selectedRoute, walk.phase, walk.trip?.route]);
@@ -51,6 +53,28 @@ export default function Index() {
       : walk.phase === "finished" ? height * 0.52 : height * 0.58;
   const route = walk.selectedRoute;
   useEffect(() => { setActualPanelHeight(panelHeight); }, [panelHeight]);
+  useEffect(() => () => {
+    if (startTripTimer.current) clearTimeout(startTripTimer.current);
+  }, []);
+
+  function confirmStartTrip() {
+    if (Platform.OS === "ios") {
+      startAfterConfirmDismiss.current = true;
+      setShowStartConfirm(false);
+      return;
+    }
+    setShowStartConfirm(false);
+    startTripTimer.current = setTimeout(() => {
+      startTripTimer.current = null;
+      void walk.startTrip();
+    }, 250);
+  }
+
+  function onStartConfirmDismiss() {
+    if (!startAfterConfirmDismiss.current) return;
+    startAfterConfirmDismiss.current = false;
+    void walk.startTrip();
+  }
 
   if (walk.restoring) return <View style={[common.page, s.center]}><ActivityIndicator size="large" color={palette.evergreen} /><Text style={s.loading}>Checking for an active walk…</Text></View>;
 
@@ -228,7 +252,7 @@ export default function Index() {
         </ScrollView>
     </DraggableDrawer>
 
-    <Modal visible={showStartConfirm && walk.phase === "routes" && !!route} transparent animationType="fade" onRequestClose={() => setShowStartConfirm(false)}>
+    <Modal visible={showStartConfirm && walk.phase === "routes" && !!route} transparent animationType="fade" onRequestClose={() => setShowStartConfirm(false)} onDismiss={onStartConfirmDismiss}>
       <View style={s.modalBackdrop}><View style={[s.modalCard, s.startModalCard]}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.startModalContent}>
           <Eyebrow>BEFORE YOU START</Eyebrow>
@@ -250,7 +274,7 @@ export default function Index() {
           {walk.demo ? <View style={{ marginTop: 12 }}><Notice tone="warning">{walk.result?.demo ? "This is a simulated trip. The moving location and lighting scores are not real." : "Demo walk simulates your location along the chosen route. Lighting remains an estimate."}</Notice></View> : null}
           {walk.error ? <View style={{ marginTop: 12 }}><Notice tone="danger">{walk.error}</Notice></View> : null}
         </ScrollView>
-        <ActionButton title={walk.busy ? "Starting your walk…" : "Start walk"} onPress={() => { setShowStartConfirm(false); void walk.startTrip(); }} loading={walk.busy} disabled={!route} style={{ marginTop: 10 }} />
+        <ActionButton title={walk.busy ? "Starting your walk…" : "Start walk"} onPress={confirmStartTrip} loading={walk.busy} disabled={!route} style={{ marginTop: 10 }} />
         <ActionButton title="Not yet" secondary onPress={() => setShowStartConfirm(false)} style={{ marginTop: 9 }} />
       </View></View>
     </Modal>
