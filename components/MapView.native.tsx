@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef } from "react";
-import { Linking, Pressable, Text, View } from "react-native";
+import { Linking, Platform, Pressable, Text, View } from "react-native";
 import NativeMap, { UrlTile, Marker, Polyline } from "react-native-maps";
 import type { MapViewProps } from "./MapView.types";
 
@@ -16,11 +16,16 @@ export default function MapView({ center, routes, markers, livePosition, livePos
       latitude: center.lat, longitude: center.lng, latitudeDelta: 0.012, longitudeDelta: 0.012,
     }, 250);
   }, [center.lat, center.lng, routes?.length]);
-  return <View style={{ flex: 1 }}><NativeMap ref={ref} style={{ flex: 1 }} mapType="none" accessibilityLabel="OpenStreetMap walking route map" initialRegion={{ latitude: center.lat, longitude: center.lng, latitudeDelta: 0.012, longitudeDelta: 0.012 }} onMapReady={() => {
+  return <View style={{ flex: 1 }}><NativeMap ref={ref} style={{ flex: 1 }} mapType={Platform.OS === "android" ? "none" : "standard"} accessibilityLabel="OpenStreetMap walking route map" initialRegion={{ latitude: center.lat, longitude: center.lng, latitudeDelta: 0.012, longitudeDelta: 0.012 }} onMapReady={() => {
     const points = routes?.flatMap(r => r.geometry.coordinates.map(([longitude, latitude]) => ({ latitude, longitude })));
     if (points?.length) ref.current?.fitToCoordinates(points, { edgePadding: fitPadding ?? { top: 35, bottom: 35, left: 35, right: 35 }, animated: false });
   }}>
-    <UrlTile urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} />
+    <UrlTile
+      urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+      maximumZ={19}
+      tileCacheMaxAge={86400}
+      shouldReplaceMapContent={Platform.OS === "ios"}
+    />
     {routes?.map(r => <Fragment key={`${r.id}-route`}>
       <Polyline coordinates={r.geometry.coordinates.map(([longitude, latitude]) => ({ latitude, longitude }))} strokeColor="#f5f3e9" strokeWidth={11} lineCap="round" lineJoin="round" />
       <Polyline coordinates={r.geometry.coordinates.map(([longitude, latitude]) => ({ latitude, longitude }))} strokeColor={r.color} strokeWidth={5} lineCap="round" lineJoin="round" />

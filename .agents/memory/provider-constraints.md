@@ -15,6 +15,15 @@ Source: https://operations.osmfoundation.org/policies/nominatim/
 autocomplete or higher volume is requested, first choose a suitable geocoding
 provider or self-hosted endpoint rather than silently using the public service.
 
+OSM raster-tile probes from the shell should include a descriptive User-Agent
+and Referer.
+
+**Why:** A headerless request returned an OSM tile-policy denial in this
+environment, while an identified request for a nearby tile returned a PNG.
+
+**How to apply:** When diagnosing tile access with curl, include both headers
+before concluding that the tile host is blocked or changing the app's provider.
+
 Resend send-only authorization need not be broadened just to discover sender domains.
 
 **Why:** The connected authorization rejected domain listing with “This API key

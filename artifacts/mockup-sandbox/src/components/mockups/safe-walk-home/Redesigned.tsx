@@ -61,6 +61,10 @@ export function Redesigned() {
     <main className="sw-screen">
       <div className="sw-map-layer" aria-label="OpenStreetMap map centered on San Francisco">
         <MapView center={sanFranciscoCenter} />
+        <div className="sw-map-caption" aria-label="Sample map preview in San Francisco">
+          <span className="sw-map-caption-mark" aria-hidden="true"><i /><i /><i /></span>
+          <span><b>SAMPLE MAP</b><small>San Francisco · OpenStreetMap</small></span>
+        </div>
       </div>
 
       <header className="sw-topbar">
@@ -185,19 +189,19 @@ export function Redesigned() {
 
       <style>{`
         .sw-screen {
-          --forest: #193c32;
-          --forest-dark: #12362d;
-          --sage: #8fa39b;
-          --sage-dark: #71877d;
-          --paper: #fbfaf5;
-          --line: #d2d2c8;
-          --muted: #68736c;
+          --forest: var(--sw-evergreen);
+          --forest-dark: var(--sw-evergreen-deep);
+          --sage: #82958a;
+          --sage-dark: #63796c;
+          --paper: var(--sw-paper);
+          --line: var(--sw-line);
+          --muted: #5f7065;
           position: relative;
           width: 100%;
           height: 100dvh;
           min-height: 600px;
           overflow: hidden;
-          background: #e9e9df;
+          background: #e7e9de;
           color: var(--forest);
           font-family: "DM Sans", "Plus Jakarta Sans", sans-serif;
         }
@@ -206,9 +210,43 @@ export function Redesigned() {
           position: absolute;
           inset: 0 0 58% 0;
           overflow: hidden;
-          background: #e8e8de;
+          background: #e5e8dc;
         }
-        .sw-map-layer > div { width: 100%; height: 100%; }
+        .sw-map-layer > div:first-child { width: 100%; height: 100%; }
+        .sw-map-caption {
+          position: absolute;
+          z-index: 500;
+          left: 16px;
+          bottom: 13px;
+          display: flex;
+          align-items: center;
+          gap: 9px;
+          padding: 8px 11px 8px 9px;
+          border: 1px solid rgba(35, 75, 61, .14);
+          border-radius: 13px;
+          background: rgba(251, 250, 244, .96);
+          box-shadow: 0 5px 16px rgba(33, 54, 42, .14);
+          color: var(--forest);
+          pointer-events: none;
+          backdrop-filter: blur(8px);
+        }
+        .sw-map-caption-mark {
+          width: 29px;
+          height: 29px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 2px;
+          border-radius: 9px;
+          background: #e8eddd;
+        }
+        .sw-map-caption-mark i { width: 3px; border-radius: 4px; background: #657d5b; }
+        .sw-map-caption-mark i:nth-child(1) { height: 9px; }
+        .sw-map-caption-mark i:nth-child(2) { height: 16px; background: #a4b76a; }
+        .sw-map-caption-mark i:nth-child(3) { height: 12px; }
+        .sw-map-caption > span:last-child { display: flex; flex-direction: column; gap: 3px; }
+        .sw-map-caption b { font-size: 8px; line-height: 1; letter-spacing: .12em; }
+        .sw-map-caption small { color: #627267; font-size: 9px; line-height: 1; }
         .sw-topbar {
           position: absolute;
           z-index: 20;
@@ -229,10 +267,10 @@ export function Redesigned() {
           min-width: 180px;
           height: 50px;
           padding: 4px 13px 4px 10px;
-          border: 1px solid rgba(221, 221, 209, .85);
+          border: 1px solid rgba(215, 217, 203, .92);
           border-radius: 14px;
           background: rgba(251, 250, 245, .96);
-          box-shadow: 0 2px 8px rgba(45, 55, 43, .12);
+          box-shadow: 0 4px 13px rgba(35, 55, 43, .15);
         }
         .sw-mark {
           width: 34px;
@@ -242,7 +280,7 @@ export function Redesigned() {
           place-items: center;
           border-radius: 50%;
           border: 1px solid #9aab8b;
-          background: #203f35;
+          background: #193c32;
           color: #f5f4ea;
           box-shadow: inset 0 0 0 3px rgba(251, 250, 245, .1);
         }
@@ -408,13 +446,13 @@ export function Redesigned() {
           height: 45px;
           border: 0;
           border-radius: 12px;
-          background: #91a39a;
+          background: #82958a;
           color: #fbfaf5;
           font: 750 14px "DM Sans", sans-serif;
           cursor: pointer;
           transition: transform .15s, background .15s;
         }
-        .sw-search-button:hover { background: #7f968b; }
+        .sw-search-button:hover { background: #6f8779; }
         .sw-actions-row { display: grid; grid-template-columns: 1fr 70px; gap: 9px; margin-top: 10px; }
         .sw-compare, .sw-demo {
           height: 54px;
@@ -424,8 +462,8 @@ export function Redesigned() {
           cursor: pointer;
           transition: transform .15s, background .15s;
         }
-        .sw-compare { background: #91a39a; color: #fbfaf5; }
-        .sw-compare:hover { background: #7f968b; }
+        .sw-compare { background: #82958a; color: #fbfaf5; }
+        .sw-compare:hover { background: #6f8779; }
         .sw-demo { border: 1px solid #d5d7ca; background: #eef0e4; color: #394d3e; font-size: 13px; }
         .sw-demo:hover { background: #e4e8d9; }
         .sw-compare:active, .sw-demo:active, .sw-search-button:active { transform: translateY(1px); }
