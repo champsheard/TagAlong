@@ -16,16 +16,15 @@ export default function MapView({ center, routes, markers, livePosition, livePos
       latitude: center.lat, longitude: center.lng, latitudeDelta: 0.012, longitudeDelta: 0.012,
     }, 250);
   }, [center.lat, center.lng, routes?.length]);
-  return <View style={{ flex: 1 }}><NativeMap ref={ref} style={{ flex: 1 }} mapType={Platform.OS === "android" ? "none" : "standard"} accessibilityLabel="OpenStreetMap walking route map" initialRegion={{ latitude: center.lat, longitude: center.lng, latitudeDelta: 0.012, longitudeDelta: 0.012 }} onMapReady={() => {
+  return <View style={{ flex: 1 }}><NativeMap ref={ref} style={{ flex: 1 }} mapType={Platform.OS === "android" ? "none" : "standard"} accessibilityLabel={Platform.OS === "ios" ? "Apple Maps walking route map" : "OpenStreetMap walking route map"} initialRegion={{ latitude: center.lat, longitude: center.lng, latitudeDelta: 0.012, longitudeDelta: 0.012 }} onMapReady={() => {
     const points = routes?.flatMap(r => r.geometry.coordinates.map(([longitude, latitude]) => ({ latitude, longitude })));
     if (points?.length) ref.current?.fitToCoordinates(points, { edgePadding: fitPadding ?? { top: 35, bottom: 35, left: 35, right: 35 }, animated: false });
   }}>
-    <UrlTile
+    {Platform.OS === "android" && <UrlTile
       urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
       maximumZ={19}
       tileCacheMaxAge={86400}
-      shouldReplaceMapContent={Platform.OS === "ios"}
-    />
+    />}
     {routes?.map(r => <Fragment key={`${r.id}-route`}>
       <Polyline coordinates={r.geometry.coordinates.map(([longitude, latitude]) => ({ latitude, longitude }))} strokeColor="#f5f3e9" strokeWidth={11} lineCap="round" lineJoin="round" />
       <Polyline coordinates={r.geometry.coordinates.map(([longitude, latitude]) => ({ latitude, longitude }))} strokeColor={r.color} strokeWidth={5} lineCap="round" lineJoin="round" />
@@ -51,5 +50,5 @@ export default function MapView({ center, routes, markers, livePosition, livePos
         <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 3, borderColor: "#fff", backgroundColor: "#236ce1" }} />
       </View>
     </Marker>}
-  </NativeMap><Pressable accessibilityRole="link" accessibilityLabel="OpenStreetMap attribution" onPress={() => Linking.openURL("https://www.openstreetmap.org/copyright")} style={{ position: "absolute", right: 6, bottom: (attributionBottom ?? 4) + 3, minHeight: 32, justifyContent: "center", backgroundColor: "#fbfaf5f5", paddingHorizontal: 9, paddingVertical: 5, borderRadius: 9 }}><Text style={{ fontSize: 10, color: "#193c32", fontWeight: "700" }}>© OpenStreetMap</Text></Pressable></View>;
+  </NativeMap>{Platform.OS === "android" && <Pressable accessibilityRole="link" accessibilityLabel="OpenStreetMap attribution" onPress={() => Linking.openURL("https://www.openstreetmap.org/copyright")} style={{ position: "absolute", right: 6, bottom: (attributionBottom ?? 4) + 3, minHeight: 32, justifyContent: "center", backgroundColor: "#fbfaf5f5", paddingHorizontal: 9, paddingVertical: 5, borderRadius: 9 }}><Text style={{ fontSize: 10, color: "#193c32", fontWeight: "700" }}>© OpenStreetMap</Text></Pressable>}</View>;
 }
