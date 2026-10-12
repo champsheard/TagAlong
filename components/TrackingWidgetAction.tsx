@@ -5,7 +5,7 @@ import { startTrackingWidget, updateTrackingWidget, widgetsSupported } from "../
 import type { TrackingData } from "../shared/types";
 export default function TrackingWidgetAction({ code, data }: { code: string; data: TrackingData }) {
   const [notice, setNotice] = useState(""), [error, setError] = useState(""), [busy, setBusy] = useState(false);
-  const state = { shareCode: code, status: data.status, etaAt: data.etaAt, lastUpdateAt: data.lastUpdateAt, expiresAt: data.expiresAt, demo: data.demo };
+  const state = { shareCode: code, status: data.status, etaAt: data.etaAt, lastUpdateAt: data.lastUpdateAt, expiresAt: data.expiresAt, demo: data.demo, travelMode: data.travelMode };
   useEffect(() => {
     updateTrackingWidget(state).catch(e => setError(e instanceof Error ? e.message : "Widget update failed. Open the tracking map."));
   }, [code, data.status, data.etaAt, data.lastUpdateAt, data.expiresAt]);

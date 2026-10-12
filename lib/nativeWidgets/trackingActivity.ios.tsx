@@ -9,14 +9,14 @@ import type { WidgetState } from "../../shared/contacts";
 function TrackingActivity(props: WidgetState, environment: LiveActivityEnvironment) {
   "widget";
   const old = environment.isStale || !props.lastUpdateAt || Date.now() - props.lastUpdateAt > 120000;
-  const status = props.expiresAt <= Date.now() ? "Expired" : props.status === "help" ? "Help requested" : props.status === "arrived" ? "Arrived" : old ? "Older location" : "Walking";
+  const status = props.expiresAt <= Date.now() ? "Expired" : props.status === "help" ? "Help requested" : props.status === "arrived" ? "Arrived" : old ? "Older location" : props.travelMode === "driving" ? "Driving" : "Walking";
   const color = props.status === "help" ? "#9E3835" : "#244335";
   const eta = new Date(props.etaAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   return {
     banner: <VStack alignment="leading" spacing={6} modifiers={[padding({ all: 16 })]}>
       <HStack spacing={12}><Text modifiers={[font({ size: 15, weight: "bold" }), foregroundStyle(color)]}>Safe Walk{props.demo ? " · DEMO" : ""}</Text><Text>{status}</Text></HStack>
       <Text modifiers={[font({ size: 19, weight: "semibold" })]}>{props.status === "active" ? `ETA ${eta}` : status}</Text>
-      <Text modifiers={[font({ size: 12 })]}>{props.status === "help" ? "Contact your walker. No emergency call was made." : old ? "Open the map to check the last shared location." : "Tap to open the tracking map."}</Text>
+      <Text modifiers={[font({ size: 12 })]}>{props.status === "help" ? "Contact your person. No emergency call was made." : old ? "Open the map to check the last shared location." : "Tap to open the tracking map."}</Text>
     </VStack>,
     compactLeading: <Text>SW</Text>, compactTrailing: <Text>{props.status === "help" ? "!" : props.status === "arrived" ? "✓" : old ? "—" : eta}</Text>,
     minimal: <Text>{props.status === "help" ? "!" : "SW"}</Text>,
@@ -43,7 +43,7 @@ export async function startTrackingWidget(state: WidgetState) {
   await saveWidgetState({ ...state, activityId: instance.getId() });
   await registerToken(state, instance);
   const config = await api.config();
-  return config.remoteWidgetsAvailable ? "Live Activity added. Background updates depend on Apple delivery and the walker's connection."
+  return config.remoteWidgetsAvailable ? "Live Activity added. Background updates depend on Apple delivery and the person's connection."
     : "Live Activity added. Server push updates aren't configured yet; it updates while this tracking screen is open and becomes stale in the background.";
 }
 export async function updateTrackingWidget(state: WidgetState) {

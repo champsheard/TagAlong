@@ -129,9 +129,12 @@ test("app sharing needs both sender auth and trip write auth; pushes, inbox, and
   await notifications.processNotifications();
   assert.ok(pushDeliveries.some(delivery => delivery.event === "help" && delivery.status === "help"));
 
-  const arrivalTrip = (await call("/trips", "POST", { routeGeometry: geometry, etaSeconds: 90, demo: false })).data;
+  const arrivalTrip = (await call("/trips", "POST", { routeGeometry: geometry, etaSeconds: 90, demo: false, travelMode: "driving" })).data;
   assert.equal((await call(`/trips/${arrivalTrip.tripId}/share`, "POST", body, sender.authToken,
     { "X-Trip-Token": arrivalTrip.writeToken })).status, 200);
+  assert.equal((await call(`/track/${arrivalTrip.shareCode}`)).data.travelMode, "driving");
+  const inboxTrips = (await call("/inbox", "GET", undefined, receiver.authToken)).data.trips;
+  assert.equal(inboxTrips.find((trip: { shareCode: string }) => trip.shareCode === arrivalTrip.shareCode)?.travelMode, "driving");
   await notifications.processNotifications();
   const beforeArrival = pushDeliveries.length;
   assert.equal((await call(`/trips/${arrivalTrip.tripId}/end`, "POST", { status: "arrived" }, arrivalTrip.writeToken)).status, 200);

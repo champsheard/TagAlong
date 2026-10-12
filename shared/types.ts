@@ -1,4 +1,5 @@
 export type Point = { lat: number; lng: number };
+export type TravelMode = "walking" | "driving";
 export type Geometry = { type: "LineString"; coordinates: [number, number][] };
 export type Place = Point & { label: string };
 export type LightBreakdown = {
@@ -9,18 +10,18 @@ export type LightBreakdown = {
 export type RouteOption = {
   id: string; geometry: Geometry; distanceMeters: number; durationSeconds: number;
   lightScore: number | null; lightBreakdown: LightBreakdown;
-  label: "Fastest" | "Best lit";
+  label: "Fastest" | "Best lit" | "Alternative";
 };
-export type RouteResult = { routes: RouteOption[]; notices: string[]; demo: boolean };
+export type RouteResult = { routes: RouteOption[]; notices: string[]; demo: boolean; travelMode: TravelMode };
 export type Position = Point & { accuracy: number | null; timestamp: number };
 export type TripStatus = "active" | "arrived" | "help";
 export type TrackingData = {
   status: TripStatus; lastLocation: Position | null; lastUpdateAt: number | null;
-  route: Geometry; etaAt: number; startedAt: number; expiresAt: number; demo: boolean;
+  route: Geometry; etaAt: number; startedAt: number; expiresAt: number; demo: boolean; travelMode: TravelMode;
 };
 export type TripCredentials = {
   tripId: string; shareCode: string; writeToken: string;
-  etaAt: number; expiresAt: number; demo: boolean; pendingEnd?: "arrived" | "help";
+  etaAt: number; expiresAt: number; demo: boolean; travelMode: TravelMode; pendingEnd?: "arrived" | "help";
   routeLabel?: RouteOption["label"];
 };
 export type ArrivalFeedbackReport = {

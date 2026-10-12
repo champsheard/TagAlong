@@ -1,5 +1,6 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
-import type { Geometry, Position, TrackingData, TripStatus } from "../../shared/types";
+import type { Geometry, Position, TrackingData, TravelMode, TripStatus } from "../../shared/types";
+import { routeLength } from "../../shared/geo";
 import { database } from "./db";
 import { HttpError } from "./errors";
 import { validPoint, validateGeometry } from "./validation";
@@ -8,18 +9,26 @@ import { scheduleTripUpdate } from "./notifications";
 type TripRow = {
   id: string; share_code: string; token_hash: string; route: string;
   status: TripStatus; started_at: number; ended_at: number | null; eta_at: number;
-  expires_at: number; last_location: string | null; last_update_at: number | null; demo: number;
+  expires_at: number; last_location: string | null; last_update_at: number | null; demo: number; travel_mode: TravelMode;
 };
 const digest = (token: string) => createHash("sha256").update(token).digest("hex");
-export function createTrip(body: { routeGeometry?: Geometry; etaSeconds?: number; demo?: boolean }) {
-  validateGeometry(body.routeGeometry);
+export function createTrip(body: { routeGeometry?: Geometry; etaSeconds?: number; demo?: boolean; travelMode?: TravelMode }) {
+  const routeGeometry = body.routeGeometry;
+  validateGeometry(routeGeometry);
   if (!Number.isFinite(body.etaSeconds) || body.etaSeconds! < 1 || body.etaSeconds! > 21600) throw new HttpError(400, "Provide a valid ETA between 1 second and 6 hours.");
   if (body.demo !== undefined && typeof body.demo !== "boolean") throw new HttpError(400, "Invalid demo setting.");
+  const travelMode = body.travelMode ?? "walking";
+  if (travelMode !== "walking" && travelMode !== "driving") throw new HttpError(400, "Choose walking or driving routes.");
+  const maxRouteDistance = travelMode === "driving" ? 300_000 : 25_000;
+  if (routeLength(routeGeometry) > maxRouteDistance) {
+    throw new HttpError(400, travelMode === "driving" ? "Driving trips are limited to 300 km." : "Walking trips are limited to 25 km.");
+  }
+  if (travelMode === "driving" && body.etaSeconds! > 5 * 60 * 60) throw new HttpError(400, "Driving ETAs must be five hours or less so tracking remains available through the trip.");
   const tripId = randomUUID(), shareCode = randomBytes(24).toString("base64url"), writeToken = randomBytes(32).toString("base64url");
   const now = Date.now(), expiresAt = now + 21600000, etaAt = now + Math.round(body.etaSeconds! * 1000);
-  database.prepare("INSERT INTO trips(id,share_code,token_hash,route,started_at,eta_at,expires_at,demo) VALUES(?,?,?,?,?,?,?,?)")
-    .run(tripId, shareCode, digest(writeToken), JSON.stringify(body.routeGeometry), now, etaAt, expiresAt, body.demo ? 1 : 0);
-  return { tripId, shareCode, writeToken, etaAt, expiresAt };
+  database.prepare("INSERT INTO trips(id,share_code,token_hash,route,travel_mode,started_at,eta_at,expires_at,demo) VALUES(?,?,?,?,?,?,?,?,?)")
+    .run(tripId, shareCode, digest(writeToken), JSON.stringify(routeGeometry), travelMode, now, etaAt, expiresAt, body.demo ? 1 : 0);
+  return { tripId, shareCode, writeToken, etaAt, expiresAt, travelMode };
 }
 export function writable(id: string, token: string | undefined): TripRow {
   if (!token || token.length > 200) throw new HttpError(401, "A private write token is required.");
@@ -63,6 +72,6 @@ export function trackTrip(code: string): TrackingData {
   return {
     status: row.status, lastLocation: row.last_location ? JSON.parse(row.last_location) : null,
     lastUpdateAt: row.last_update_at, route: JSON.parse(row.route),
-    etaAt: row.eta_at, startedAt: row.started_at, expiresAt: row.expires_at, demo: !!row.demo,
+    etaAt: row.eta_at, startedAt: row.started_at, expiresAt: row.expires_at, demo: !!row.demo, travelMode: row.travel_mode,
   };
 }

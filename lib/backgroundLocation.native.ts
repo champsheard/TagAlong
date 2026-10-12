@@ -63,8 +63,8 @@ export async function startBackgroundLocationUpdates(): Promise<boolean> {
     showsBackgroundLocationIndicator: true,
     ...(Platform.OS === "android" ? {
       foregroundService: {
-        notificationTitle: "Safe Walk is sharing your walk",
-        notificationBody: "Location updates are active until you end this walk.",
+        notificationTitle: "Safe Walk is sharing your trip",
+        notificationBody: "Location updates are active until you end this trip.",
         killServiceOnDestroy: true,
       },
     } : {}),

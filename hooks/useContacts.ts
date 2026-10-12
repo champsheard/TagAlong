@@ -75,8 +75,8 @@ export function useContacts() {
   const autoShare = (enabled: boolean) => perform(async () => {
     setProfile(await api.updateProfile(await ensureInstallation(), { autoShare: enabled }));
     setNotice(enabled
-      ? "Automatic sharing is on. New real walks will be added to all matched, opted-in Safe Walk inboxes."
-      : "Automatic sharing is off. New walks won't be sent to app contacts unless you share them manually.");
+      ? "Automatic sharing is on. New real trips will be added to all matched, opted-in Safe Walk inboxes."
+      : "Automatic sharing is off. New trips won't be sent to app contacts unless you share them manually.");
   });
   const notifications = () => perform(async () => { setProfile(await enableDeviceNotifications()); setNotice("App notifications enabled on this device."); });
   const discoverable = (enabled: boolean) => perform(async () => {

@@ -1,5 +1,5 @@
 import { Platform, Share } from "react-native";
-import type { ArrivalFeedbackPayload, Geometry, Place, Point, Position, RouteResult, TrackingData, TripCredentials } from "../shared/types";
+import type { ArrivalFeedbackPayload, Geometry, Place, Point, Position, RouteResult, TrackingData, TravelMode, TripCredentials } from "../shared/types";
 import type { ContactMatch, ContactsConfig, IdentifierKind, InstallationProfile, InstallationSession, ReceivedTrip } from "../shared/contacts";
 
 const configured = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, "");
@@ -31,10 +31,10 @@ async function request<T>(path: string, method = "GET", body?: unknown, token?: 
 export const api = {
   config: () => request<ContactsConfig & { routingAvailable: boolean }>("/config"),
   geocode: (query: string, near?: Point) => request<Place[]>("/geocode", "POST", { q: query, near }),
-  routes: (from: Point, to: Point) => request<RouteResult>("/routes", "POST", { from, to }),
+  routes: (from: Point, to: Point, travelMode: TravelMode) => request<RouteResult>("/routes", "POST", { from, to, travelMode }),
   demo: () => request<RouteResult & { from: Place; to: Place }>("/demo"),
-  createTrip: (routeGeometry: Geometry, etaSeconds: number, demo: boolean) =>
-    request<Omit<TripCredentials, "demo">>("/trips", "POST", { routeGeometry, etaSeconds, demo }),
+  createTrip: (routeGeometry: Geometry, etaSeconds: number, demo: boolean, travelMode: TravelMode) =>
+    request<Omit<TripCredentials, "demo">>("/trips", "POST", { routeGeometry, etaSeconds, demo, travelMode }),
   location: (trip: TripCredentials, position: Position) =>
     request<{ ok: boolean }>(`/trips/${trip.tripId}/location`, "POST", position, trip.writeToken),
   end: (trip: TripCredentials, status: "arrived" | "help") =>
@@ -68,11 +68,11 @@ export function tripLink(code: string) {
 export async function shareTripLink(code: string): Promise<string> {
   const url = tripLink(code);
   if (Platform.OS !== "web") {
-    await Share.share({ message: `Follow my Safe Walk trip: ${url}`, url });
+    await Share.share({ message: `Follow my trip with Safe Walk: ${url}`, url });
     return "Share the private link with one trusted contact.";
   }
   if (navigator.share) {
-    try { await navigator.share({ title: "Follow my Safe Walk", text: "Follow my walking trip live.", url }); return "Share the private link with one trusted contact."; }
+    try { await navigator.share({ title: "Follow my Safe Walk trip", text: "Follow my trip live.", url }); return "Share the private link with one trusted contact."; }
     catch (error) { if ((error as Error).name === "AbortError") return "Sharing cancelled. You can share the link again."; }
   }
   try { await navigator.clipboard.writeText(url); return "Private tracking link copied. Send it to one trusted contact."; }

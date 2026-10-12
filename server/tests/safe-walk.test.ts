@@ -1,5 +1,6 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
+import Database from "better-sqlite3";
 import type { Server } from "node:http";
 import type { Geometry, TripCredentials } from "../../shared/types";
 
@@ -54,6 +55,28 @@ test("private trip credentials and active location sharing", async () => {
   assert.equal(read.headers.get("cache-control"), "no-store");
   assert.equal("writeToken" in read.data, false);
   assert.equal("token_hash" in read.data, false);
+});
+test("driving trips preserve their mode and enforce route distance and ETA limits", async () => {
+  const longWalkingRoute: Geometry = { type: "LineString", coordinates: [[0, 0], [0.5, 0]] };
+  assert.equal((await call("/trips", { routeGeometry: longWalkingRoute, etaSeconds: 3600, travelMode: "walking" })).status, 400);
+  const drive = await call("/trips", { routeGeometry: longWalkingRoute, etaSeconds: 3600, travelMode: "driving" });
+  assert.equal(drive.status, 201);
+  assert.equal(drive.data.travelMode, "driving");
+  assert.equal((await call(`/track/${drive.data.shareCode}`)).data.travelMode, "driving");
+  assert.equal((await call("/trips", { routeGeometry: { type: "LineString", coordinates: [[0, 0], [3, 0]] }, etaSeconds: 3600, travelMode: "driving" })).status, 400);
+  assert.equal((await call("/trips", { routeGeometry: longWalkingRoute, etaSeconds: 5 * 3600 + 1, travelMode: "driving" })).status, 400);
+});
+test("legacy trip rows migrate to walking without losing existing records", () => {
+  const legacy = new Database(":memory:");
+  try {
+    legacy.exec("CREATE TABLE trips (id TEXT PRIMARY KEY, status TEXT NOT NULL)");
+    legacy.prepare("INSERT INTO trips(id,status) VALUES(?,?)").run("legacy-trip", "active");
+    db.migrateTripTravelMode(legacy);
+    assert.deepEqual(legacy.prepare("SELECT id,status,travel_mode FROM trips").get(), {
+      id: "legacy-trip", status: "active", travel_mode: "walking",
+    });
+    assert.throws(() => legacy.prepare("UPDATE trips SET travel_mode = ? WHERE id = ?").run("flying", "legacy-trip"));
+  } finally { legacy.close(); }
 });
 test("arrival stops writes, is idempotent, and retains link for four hours", async () => {
   const t = await trip();
@@ -153,9 +176,50 @@ test("routes use real provider alternatives and do not silently fabricate withou
   const r = await call("/routes", { from: { lat: 0, lng: 0 }, to: { lat: 0, lng: 0.001 } });
   assert.equal(r.status, 200); assert.equal(requestedAlternatives, true);
   assert.equal(r.data.demo, false); assert.equal(r.data.routes.length, 2);
+  assert.equal(r.data.travelMode, "walking");
   assert.equal(r.data.routes[0].durationSeconds, 90);
   assert.equal(r.data.routes[1].lightBreakdown.limitedData, true);
   globalThis.fetch = realFetch; delete process.env.ORS_API_KEY;
+});
+test("driving route planning uses the car profile, skips lighting, and enforces 300 km and five-hour limits", async () => {
+  process.env.ORS_API_KEY = "test-fixture-not-a-real-key";
+  const fastGeometry: Geometry = { type: "LineString", coordinates: [[0, 0], [1, 0], [2, 0]] };
+  const alternateGeometry: Geometry = { type: "LineString", coordinates: [[0, 0], [1, 0.2], [2, 0]] };
+  let requestedUrl = "", overpassRequests = 0;
+  let responseFeatures = [
+    { geometry: fastGeometry, properties: { summary: { distance: 240_000, duration: 12_000 } } },
+    { geometry: alternateGeometry, properties: { summary: { distance: 260_000, duration: 13_000 } } },
+  ];
+  globalThis.fetch = (async (url: string | URL | Request) => {
+    requestedUrl = String(url);
+    if (requestedUrl.includes("openrouteservice")) return Response.json({ features: responseFeatures });
+    if (requestedUrl.includes("overpass")) overpassRequests++;
+    return realFetch(url);
+  }) as typeof fetch;
+  try {
+    const result = await call("/routes", {
+      from: { lat: 0, lng: 0 }, to: { lat: 0, lng: 2 }, travelMode: "driving",
+    });
+    assert.equal(result.status, 200);
+    assert.match(requestedUrl, /directions\/driving-car\/geojson/);
+    assert.equal(result.data.travelMode, "driving");
+    assert.deepEqual(result.data.routes.map((route: { label: string }) => route.label), ["Fastest", "Alternative"]);
+    assert.equal(result.data.routes[0].distanceMeters, 240_000);
+    assert.equal(result.data.routes[0].lightScore, null);
+    assert.equal(overpassRequests, 0);
+    assert.match(result.data.notices[0], /not turn-by-turn navigation/);
+
+    const previousRequest = requestedUrl;
+    assert.equal((await call("/routes", { from: { lat: 0, lng: 0 }, to: { lat: 0, lng: 3 }, travelMode: "driving" })).status, 400);
+    assert.equal(requestedUrl, previousRequest);
+    responseFeatures = [{ geometry: fastGeometry, properties: { summary: { distance: 301_000, duration: 12_000 } } }];
+    assert.equal((await call("/routes", { from: { lat: 0, lng: 0 }, to: { lat: 0, lng: 2 }, travelMode: "driving" })).status, 422);
+    responseFeatures = [{ geometry: fastGeometry, properties: { summary: { distance: 240_000, duration: 18_001 } } }];
+    assert.equal((await call("/routes", { from: { lat: 0, lng: 0 }, to: { lat: 0, lng: 2 }, travelMode: "driving" })).status, 422);
+  } finally {
+    globalThis.fetch = realFetch;
+    delete process.env.ORS_API_KEY;
+  }
 });
 test("Nominatim requests are globally throttled and cached", async () => {
   let requests = 0;

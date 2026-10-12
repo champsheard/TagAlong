@@ -62,3 +62,13 @@ TypeScript passes.
 
 **How to apply:** Declare renderer and map packages in the sandbox package
 manifest, install them there, and verify the preview browser has no hook errors.
+
+Expo Go's DevTools helper may log a missing `libnspr4.so` after `glib` is added,
+even though Metro and its tunnel can still start successfully in this workspace.
+
+**Why:** The helper first failed because `libglib-2.0.so.0` was unavailable; after
+adding the `glib` system package, Expo Go reached “Tunnel ready” despite the NSPR
+warning.
+
+**How to apply:** Check for a ready Metro bundle and tunnel before treating this
+specific DevTools warning as fatal or adding more system libraries.

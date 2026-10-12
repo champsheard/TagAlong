@@ -3,3 +3,4 @@
 - [Safe Walk map providers](map-platforms.md) — use native Apple Maps on iOS; reserve OSM tiles and attribution for platforms displaying them.
 - [Provider constraints](provider-constraints.md) — Nominatim requires deliberate search; OSM tile probes need identifying headers.
 - [Runtime compatibility](runtime-compatibility.md) — Expo Go peer versions and development middleware/watch behavior need explicit compatibility checks.
+- [Safe Walk driving](safe-walk-driving.md) — driving uses route estimates and live sharing, not navigation; preserve the 300 km cap and six-hour privacy window unless revisited.

@@ -26,7 +26,7 @@ export default function TrackTrip() {
   const { height } = useWindowDimensions();
   const data = tracking.data;
   useEffect(() => {
-    if (tracking.expired) updateTrackingWidget({ shareCode: code, status: "expired", etaAt: data?.etaAt ?? Date.now(), lastUpdateAt: data?.lastUpdateAt ?? null, expiresAt: Date.now(), demo: !!data?.demo }).catch(() => {});
+    if (tracking.expired) updateTrackingWidget({ shareCode: code, status: "expired", etaAt: data?.etaAt ?? Date.now(), lastUpdateAt: data?.lastUpdateAt ?? null, expiresAt: Date.now(), demo: !!data?.demo, travelMode: data?.travelMode ?? "walking" }).catch(() => {});
   }, [code, tracking.expired]);
   const first = data?.route.coordinates[0];
   const center = useMemo(() => data?.lastLocation
@@ -52,7 +52,7 @@ export default function TrackTrip() {
     <BackToSafeWalk onPress={leaveLiveView} />
     <BrandHeader />
     <View style={s.expiredMark}><Text style={s.expiredMarkText}>—</Text></View>
-    <SectionTitle eyebrow="Private trip link" title="This link is no longer active." subtitle="The trip may have ended, or this private link may be invalid. Ask the person walking to share a current link." />
+    <SectionTitle eyebrow="Private trip link" title="This link is no longer active." subtitle="The trip may have ended, or this private link may be invalid. Ask the person to share a current link." />
     <View style={s.privacy}><Text style={s.privacyTitle}>Your privacy matters</Text><Text style={s.copy}>Safe Walk only shows a live trip while sharing is active. There is no account or sign-in for a contact to use this page.</Text></View>
   </ScrollView></View>;
 
@@ -66,19 +66,23 @@ export default function TrackTrip() {
   if (!data) return <View style={common.page}><ScrollView contentContainerStyle={common.content}><BackToSafeWalk onPress={leaveLiveView} /><BrandHeader />
     <SectionTitle eyebrow="Private trip link" title="We can’t reach this trip yet." subtitle="Check your connection. This page will keep trying to refresh automatically." />
     {tracking.error ? <Notice tone="warning">{tracking.error}</Notice> : null}
-    <View style={{ marginTop: 15 }}><Notice>Location appears only while the person walking has sharing active and Safe Walk open in the foreground.</Notice></View>
+    <View style={{ marginTop: 15 }}><Notice>Location appears only while the person has sharing active and Safe Walk open in the foreground.</Notice></View>
   </ScrollView></View>;
 
   const waitingTooLong = data.status === "active" && tracking.now - (data.lastUpdateAt ?? data.startedAt) >= 120000;
+  const tripKind = data.travelMode === "driving" ? "drive" : "walk";
+  const personKind = data.travelMode === "driving" ? "driver" : "walker";
+  const statusTitle = data.status === "help" ? "Your contact needs help."
+    : data.status === "arrived" ? "Your contact reached their destination."
+      : data.travelMode === "driving" ? "Your contact is driving." : "Your contact is walking.";
   const mapContextLabel = data.demo
-    ? "DEMO WALK · SIMULATED LOCATION"
+    ? `DEMO ${tripKind.toUpperCase()} · SIMULATED LOCATION`
     : data.lastLocation
-      ? waitingTooLong ? "LAST LOCATION · MAY BE OLD" : "LAST SHARED LOCATION"
-      : "ROUTE ONLY · WAITING FOR LOCATION";
-  const statusTitle = data.status === "help" ? "Your contact needs help." : data.status === "arrived" ? "Your contact has arrived." : "Your contact is on the way.";
+      ? waitingTooLong ? "LAST LOCATION · MAY BE OLD" : `LAST SHARED LOCATION · ${tripKind.toUpperCase()}`
+      : `ROUTE ONLY · WAITING FOR ${personKind.toUpperCase()}`;
   return <View style={s.screen}>
     <View style={StyleSheet.absoluteFill}>
-      <MapView center={center} routes={mapRoutes} markers={mapMarkers} livePosition={data.lastLocation} livePositionLabel="Walker's most recently shared location"
+      <MapView center={center} routes={mapRoutes} markers={mapMarkers} livePosition={data.lastLocation} livePositionLabel="Contact's most recently shared location"
         fitPadding={{ top: insets.top + 86, right: 30, bottom: panelHeight + 12, left: 30 }}
         attributionBottom={panelHeight + 7} />
     </View>
@@ -97,14 +101,14 @@ export default function TrackTrip() {
           <BackToSafeWalk onPress={leaveLiveView} />
           {data.status === "help" ? <Notice tone="danger">Your contact flagged that they need help. This page does not call emergency services. If you believe someone is in immediate danger, contact 911.</Notice> :
             data.status === "arrived" ? <Notice>The trip has ended. Live location sharing is stopped.</Notice> :
-              waitingTooLong ? <Notice tone="warning">No location update for {elapsed(tracking.now - (data.lastUpdateAt ?? data.startedAt))}. This may be an older location; try contacting your walker directly.</Notice> :
+              waitingTooLong ? <Notice tone="warning">No location update for {elapsed(tracking.now - (data.lastUpdateAt ?? data.startedAt))}. This may be an older location; try contacting your {personKind} directly.</Notice> :
                 !data.lastLocation ? <Notice>Waiting for the first location update. Keep this page open; it refreshes automatically.</Notice> :
-                  <Notice>Trip active · location updates while Safe Walk is open in the foreground.</Notice>}
+                  <Notice>Trip active · location updates depend on the device's connection and location permissions.</Notice>}
           {tracking.error && data.status === "active" ? <View style={{ marginTop: 10 }}><Notice tone="warning">Couldn’t refresh just now. Showing the last location received. {tracking.error}</Notice></View> : null}
           <View style={s.titleBlock}><Eyebrow>LIVE TRIP STATUS</Eyebrow><Text style={s.title}>{statusTitle}</Text>
             {data.status === "active" ? <Text style={s.subtitle}>Estimated arrival in about {minutes(data.etaAt, tracking.now)} minutes.</Text> :
               data.status === "arrived" ? <Text style={s.subtitle}>Sharing stopped when the trip ended.</Text> :
-                <Text style={s.subtitle}>Please contact your walker directly if you can.</Text>}
+                <Text style={s.subtitle}>Please contact your person directly if you can.</Text>}
           </View>
           <Text style={s.mapCaption}>{data.lastLocation ? "Showing the most recently shared location." : "The route is shown while waiting for the first location."}</Text>
           <View style={s.updateCard}>
@@ -119,7 +123,7 @@ export default function TrackTrip() {
           <TrackingWidgetAction code={code} data={data} />
           <View style={s.infoCard}>
             <Text style={s.infoTitle}>A note for trusted contacts</Text>
-            <Text style={s.copy}>Location updates only while Safe Walk is open in the foreground. A missing or older update does not tell you why. Safe Walk is not a safety guarantee.</Text>
+            <Text style={s.copy}>Location updates are shared while the trip is active and location sharing is available. A missing or older update does not tell you why. Safe Walk is not a safety guarantee.</Text>
             {data.status === "help" ? <Text style={[s.copy, { color: palette.red, fontWeight: "800", marginTop: 9 }]}>Safe Walk does not call 911. Call emergency services yourself if needed.</Text> : null}
           </View>
           <Text style={s.footer}>This private link can be viewed by anyone who has it.</Text>

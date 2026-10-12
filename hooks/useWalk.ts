@@ -10,11 +10,12 @@ import {
 } from "../lib/backgroundLocation";
 import { readTrip, saveTrip } from "../lib/tripStorage";
 import { asPoint, pointAlong } from "../shared/geo";
-import type { Place, Position, RouteOption, RouteResult, TripCredentials } from "../shared/types";
+import type { Place, Position, RouteOption, RouteResult, TravelMode, TripCredentials } from "../shared/types";
 
 type Phase = "plan" | "routes" | "walking" | "finished";
 type ActiveTrip = TripCredentials & { route: RouteOption };
 const message = (e: unknown) => e instanceof Error ? e.message : "Please try again.";
+const tripNoun = (mode: TravelMode) => mode === "driving" ? "drive" : "walk";
 const credentials = ({ route, ...trip }: ActiveTrip): TripCredentials => trip;
 async function currentPosition(): Promise<Position> {
   const permission = await Location.requestForegroundPermissionsAsync();
@@ -35,6 +36,7 @@ async function mapPosition(): Promise<Position | null> {
 export function useWalk() {
   const [phase, setPhase] = useState<Phase>("plan");
   const [from, setFrom] = useState<Place | null>(null), [to, setTo] = useState<Place | null>(null);
+  const [travelMode, setTravelModeState] = useState<TravelMode>("walking");
   const [demo, setDemo] = useState(false);
   const [result, setResult] = useState<RouteResult | null>(null), [selectedId, setSelectedId] = useState("");
   const [trip, setTrip] = useState<ActiveTrip | null>(null);
@@ -79,8 +81,10 @@ export function useWalk() {
           await stopBackgroundLocationUpdates();
           setFinishedStatus(data.status); setPhase("finished"); return;
         }
+        const mode = saved.travelMode ?? data.travelMode ?? "walking";
         const route: RouteOption = { id: "restored", geometry: data.route, distanceMeters: 0, durationSeconds: Math.max(1, (data.etaAt - data.startedAt) / 1000), label: saved.routeLabel ?? "Fastest", lightScore: null, lightBreakdown: { lampsPer100m: 0, activityCount: 0, litShare: 0, limitedData: true, unavailable: true, reason: "Resumed trip" } };
-        setTrip({ ...saved, route }); setDemo(saved.demo);
+        setTravelModeState(mode);
+        setTrip({ ...saved, travelMode: mode, route }); setDemo(saved.demo);
         if (saved.pendingEnd) {
           stopping.current = true;
           await stopBackgroundLocationUpdates();
@@ -96,7 +100,7 @@ export function useWalk() {
             } catch {}
             if (mounted) {
               setBackgroundEnabled(enabled);
-              setBackgroundNotice(enabled ? "" : "Background location isn't active. This walk updates only while Safe Walk is open.");
+              setBackgroundNotice(enabled ? "" : `Background location isn't active. This ${tripNoun(mode)} updates only while Safe Walk is open.`);
             }
           }
         }
@@ -125,17 +129,17 @@ export function useWalk() {
             await stopBackgroundLocationUpdates();
             if (alive) {
               setBackgroundEnabled(false);
-              setBackgroundNotice("Background location couldn't securely resume. This walk updates only while Safe Walk is open.");
+              setBackgroundNotice(`Background location couldn't securely resume. This ${tripNoun(trip.travelMode)} updates only while Safe Walk is open.`);
             }
             return;
           }
         }
         setBackgroundEnabled(enabled);
-        setBackgroundNotice(enabled ? "" : "Background location isn't active. This walk updates only while Safe Walk is open.");
+        setBackgroundNotice(enabled ? "" : `Background location isn't active. This ${tripNoun(trip.travelMode)} updates only while Safe Walk is open.`);
       } catch {
         if (alive) {
           setBackgroundEnabled(false);
-          setBackgroundNotice("Background location couldn't resume. This walk updates only while Safe Walk is open.");
+          setBackgroundNotice(`Background location couldn't resume. This ${tripNoun(trip.travelMode)} updates only while Safe Walk is open.`);
         }
       }
     })();
@@ -236,7 +240,7 @@ export function useWalk() {
     setBusy(true); setError(""); setNotice("");
     try {
       const data = await api.demo();
-      setFrom(data.from); setTo(data.to); setDemo(true); setResult(data);
+      setFrom(data.from); setTo(data.to); setTravelModeState(data.travelMode); setDemo(true); setResult(data);
       setSelectedId(data.routes.find(r => r.label === "Best lit")?.id ?? data.routes[0].id); setPhase("routes");
     } catch (e) { setError(message(e)); } finally { setBusy(false); }
   }
@@ -246,9 +250,11 @@ export function useWalk() {
     try {
       let start = from;
       if (!start) { const p = await currentPosition(); setMapLocation(p); latest.current = p; setPosition(p); start = { ...p, label: "Current location" }; setFrom(start); }
-      const data = await api.routes(start, to);
-      if (!data.routes.length) throw new Error("No walking routes found. Try a nearby destination.");
-      setResult(data); setSelectedId(data.routes.find(r => r.label === "Best lit")?.id ?? data.routes[0].id); setPhase("routes");
+      const data = await api.routes(start, to, travelMode);
+      if (!data.routes.length) throw new Error(`No ${travelMode} routes found. Try a closer destination.`);
+      setResult(data);
+      setSelectedId(data.routes.find(r => r.label === (travelMode === "walking" ? "Best lit" : "Fastest"))?.id ?? data.routes[0].id);
+      setPhase("routes");
     } catch (e) { setError(message(e)); } finally { setBusy(false); }
   }
   async function startTrip() {
@@ -264,8 +270,8 @@ export function useWalk() {
       }
       if (!demo) setMapLocation(p);
       latest.current = p; setPosition(p);
-      const created = await api.createTrip(selectedRoute.geometry, demo ? 90 : selectedRoute.durationSeconds, demo);
-      const next: ActiveTrip = { ...created, demo, routeLabel: selectedRoute.label, route: selectedRoute };
+      const created = await api.createTrip(selectedRoute.geometry, demo ? 90 : selectedRoute.durationSeconds, demo, travelMode);
+      const next: ActiveTrip = { ...created, demo, travelMode, routeLabel: selectedRoute.label, route: selectedRoute };
       try { await saveTrip(credentials(next), backgroundPermission === "granted"); }
       catch {
         // Never leave an unmanageable active trip if credential storage fails.
@@ -280,10 +286,10 @@ export function useWalk() {
         }
         setBackgroundEnabled(enabled);
         setBackgroundNotice(enabled ? "" : backgroundPermission === "denied"
-          ? "Background location wasn't allowed. This walk updates only while Safe Walk is open; allow Always or Allow all the time in Settings to resume background updates."
+          ? `Background location wasn't allowed. This ${tripNoun(travelMode)} updates only while Safe Walk is open; allow Always or Allow all the time in Settings to resume background updates.`
           : backgroundPermission === "unavailable"
-            ? "Background location isn't available in this app build. This walk updates only while Safe Walk is open."
-            : "Background location couldn't start. This walk updates only while Safe Walk is open.");
+            ? `Background location isn't available in this app build. This ${tripNoun(travelMode)} updates only while Safe Walk is open.`
+            : `Background location couldn't start. This ${tripNoun(travelMode)} updates only while Safe Walk is open.`);
       }
       try { await api.location(next, p); } catch (e) { setSendError(message(e)); }
       // Contact matching can take several requests; it must not block ending the walk.
@@ -294,34 +300,34 @@ export function useWalk() {
         const result = await autoShareTrip(credentials(next), () => autoShareAttempt.current === shareAttempt && !stopping.current);
         if (result.status === "cancelled") return;
         if (result.status === "shared") {
-          showAutoShareNotice(`Walk started. Automatically shared with ${result.sharedCount} matched Safe Walk device${result.sharedCount === 1 ? "" : "s"}.${result.notificationsQueued
+          showAutoShareNotice(`Trip started. Automatically shared with ${result.sharedCount} matched Safe Walk device${result.sharedCount === 1 ? "" : "s"}.${result.notificationsQueued
             ? ` ${result.notificationsQueued} push notification${result.notificationsQueued === 1 ? " was" : "s were"} queued; delivery isn't guaranteed.`
             : " The inboxes were updated, but no push notification was queued."}`);
         } else if (result.status === "partial") {
-          showAutoShareNotice(`Walk started. Automatically shared with ${result.sharedCount} device${result.sharedCount === 1 ? "" : "s"}, but some matches could not be reached. ${result.error ?? ""}`);
+          showAutoShareNotice(`Trip started. Automatically shared with ${result.sharedCount} device${result.sharedCount === 1 ? "" : "s"}, but some matches could not be reached. ${result.error ?? ""}`);
         } else if (result.status === "failed") {
-          showAutoShareNotice(`Walk started, but automatic sharing failed. Your walk may not appear in matched contacts' inboxes. ${result.error ?? ""}`);
+          showAutoShareNotice(`Trip started, but automatic sharing failed. It may not appear in matched contacts' inboxes. ${result.error ?? ""}`);
         } else if (result.status === "off") {
-          showAutoShareNotice("Walk started. Automatic sharing is off; share manually with a trusted person if needed.");
+          showAutoShareNotice("Trip started. Automatic sharing is off; share manually with a trusted person if needed.");
         } else if (result.status === "no-permission") {
-          showAutoShareNotice("Walk started. Contacts access is off, so this walk was not automatically shared.");
+          showAutoShareNotice("Trip started. Contacts access is off, so this trip was not automatically shared.");
         } else if (result.status === "unverified") {
-          showAutoShareNotice("Walk started. Verify your device in Contacts before using automatic app sharing.");
+          showAutoShareNotice("Trip started. Verify your device in Contacts before using automatic app sharing.");
         } else if (result.status === "not-enrolled") {
-          showAutoShareNotice("Walk started. App contact matching isn't enabled on this device, so no automatic share was sent.");
+          showAutoShareNotice("Trip started. App contact matching isn't enabled on this device, so no automatic share was sent.");
         } else if (result.status === "no-current-recipients") {
-          showAutoShareNotice("Walk started. No current matched app devices could receive the share.");
+          showAutoShareNotice("Trip started. No current matched app devices could receive the share.");
         } else if (result.status === "no-matches") {
-          showAutoShareNotice("Walk started. No matched Safe Walk contacts were found; no automatic share was sent.");
+          showAutoShareNotice("Trip started. No matched Safe Walk contacts were found; no automatic share was sent.");
         } else if (result.status === "demo") {
-          showAutoShareNotice("Demo walk started. Simulated walks aren't automatically shared.");
+          showAutoShareNotice(`Demo ${tripNoun(travelMode)} started. Simulated trips aren't automatically shared.`);
         } else if (result.status === "unsupported") {
-          showAutoShareNotice("Walk started. Automatic app matching is available in the iOS and Android app; share the private link here.");
+          showAutoShareNotice("Trip started. Automatic app matching is available in the iOS and Android app; share the private link here.");
         } else {
-          showAutoShareNotice("Walk started. Use Contacts to share with app contacts or send the private link.");
+          showAutoShareNotice("Trip started. Use Contacts to share with app contacts or send the private link.");
         }
       } catch (e) {
-        showAutoShareNotice(`Walk started, but automatic sharing couldn't complete. Your walk is still active. ${message(e)}`);
+        showAutoShareNotice(`Trip started, but automatic sharing couldn't complete. Your trip is still active. ${message(e)}`);
       }
     } catch (e) { setError(message(e)); } finally { setBusy(false); }
   }
@@ -347,8 +353,12 @@ export function useWalk() {
     setBackgroundEnabled(false); setBackgroundNotice("");
     stopping.current = false; setTrip(null); setResult(null); setPhase("plan"); setError(""); setNotice(""); setSendError(""); setDemo(false);
   }
+  function setTravelMode(next: TravelMode) {
+    if (next === travelMode) return;
+    setTravelModeState(next); setResult(null); setSelectedId(""); setDemo(false); setError(""); setNotice("");
+  }
   return {
-    phase, from, to, setFrom, setTo, demo, setDemo, result, selectedRoute, foreground, backgroundEnabled, backgroundNotice,
+    phase, from, to, setFrom, setTo, travelMode, setTravelMode, demo, setDemo, result, selectedRoute, foreground, backgroundEnabled, backgroundNotice,
     mapLocation,
     selectRoute: setSelectedId, trip, position, busy, restoring, error, notice, sendError, now, routingAvailable, finishedStatus,
     locateStart, loadDemo, planRoutes, startTrip, endTrip, shareTrip, reset,

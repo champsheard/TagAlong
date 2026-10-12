@@ -22,6 +22,7 @@ database.exec(`
     share_code TEXT NOT NULL UNIQUE,
     token_hash TEXT NOT NULL,
     route TEXT NOT NULL,
+    travel_mode TEXT NOT NULL DEFAULT 'walking' CHECK (travel_mode IN ('walking','driving')),
     status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','arrived','help')),
     started_at INTEGER NOT NULL,
     ended_at INTEGER,
@@ -85,6 +86,13 @@ const installationColumns = database.pragma("table_info(installations)") as { na
 if (!installationColumns.some(column => column.name === "auto_share")) {
   database.exec("ALTER TABLE installations ADD COLUMN auto_share INTEGER NOT NULL DEFAULT 1");
 }
+export function migrateTripTravelMode(db: Database.Database) {
+  const tripColumns = db.pragma("table_info(trips)") as { name: string }[];
+  if (!tripColumns.some(column => column.name === "travel_mode")) {
+    db.exec("ALTER TABLE trips ADD COLUMN travel_mode TEXT NOT NULL DEFAULT 'walking' CHECK (travel_mode IN ('walking','driving'))");
+  }
+}
+migrateTripTravelMode(database);
 
 export function cached<T>(key: string): T | null {
   const row = database.prepare("SELECT value FROM cache WHERE key = ? AND expires_at > ?")

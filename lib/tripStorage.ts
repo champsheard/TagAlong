@@ -20,6 +20,6 @@ export async function readTrip(): Promise<TripCredentials | null> {
   try {
     const trip = JSON.parse(raw) as TripCredentials;
     if (!trip.tripId || !trip.shareCode || !trip.writeToken || !Number.isFinite(trip.expiresAt)) return null;
-    return trip;
+    return { ...trip, travelMode: trip.travelMode === "driving" ? "driving" : "walking" };
   } catch { return null; }
 }

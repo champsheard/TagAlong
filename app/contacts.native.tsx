@@ -27,7 +27,7 @@ export default function NativeContacts() {
   useEffect(() => {
     readTrip()
       .then(value => { if (value && !value.pendingEnd && value.expiresAt > Date.now()) setTrip(value); })
-      .catch(() => setLinkNotice("Your active walk couldn't be loaded. Return to the map and try again."));
+      .catch(() => setLinkNotice("Your active trip couldn't be loaded. Return to the map and try again."));
   }, []);
 
   const contacts = useMemo(() => {
@@ -58,7 +58,7 @@ export default function NativeContacts() {
         const result = await Share.share({ message });
         setLinkNotice(result.action === Share.dismissedAction
           ? "Sharing cancelled. No link was sent."
-          : "Choose a messaging app and recipient to share the private walk link.");
+          : "Choose a messaging app and recipient to share the private trip link.");
       }
     } catch (e) {
       setLinkNotice(e instanceof Error ? e.message : "Couldn't open the message composer.");
@@ -102,14 +102,14 @@ export default function NativeContacts() {
         {linkNotice ? <Notice>{linkNotice}</Notice> : null}
 
         {c.profile ? <View style={common.card}>
-          <Eyebrow>Shared walks</Eyebrow>
+          <Eyebrow>Shared trips</Eyebrow>
           <Text style={styles.body}>New app shares appear here automatically. Tap one to open its live tracking preview. The inbox refreshes while this screen is open.</Text>
           {c.inbox.length ? c.inbox.map(item => <InboxRow key={item.shareCode} item={item} onPress={() => openTrip(item)} />)
-            : <Text style={styles.small}>No unexpired walks have been shared with this device.</Text>}
+            : <Text style={styles.small}>No unexpired trips have been shared with this device.</Text>}
         </View> : null}
 
         {trip ? <View style={common.card}>
-          <Eyebrow>Your active walk</Eyebrow>
+          <Eyebrow>{`Your active ${trip.travelMode === "driving" ? "drive" : "walk"}`}</Eyebrow>
           <Text style={styles.body}>Matched contacts receive an in-app share automatically when auto-share is on. Contacts without a match are not messaged; send the private link only to someone you choose.</Text>
           <ActionButton title="Share link another way" secondary disabled={!!sharingId}
             onPress={() => shareLink()} style={{ marginTop: 10 }} />
@@ -117,7 +117,7 @@ export default function NativeContacts() {
 
         {!c.profile && !c.loading ? <View style={common.card}>
           <Eyebrow>Optional app matching</Eyebrow>
-          <Text style={styles.body}>To search for enrolled Safe Walk users, verify your own email once. This sends a code to you only; it does not email your contacts. Walk planning and private-link sharing stay account-free.</Text>
+          <Text style={styles.body}>To search for enrolled Safe Walk users, verify your own email once. This sends a code to you only; it does not email your contacts. Trip planning and private-link sharing stay account-free.</Text>
           <ActionButton title="Enable app contact matching" onPress={c.enroll} loading={c.busy} style={{ marginTop: 10 }} />
         </View> : null}
 
@@ -149,7 +149,7 @@ export default function NativeContacts() {
         {verified ? <>
           <View style={common.card}>
             <Eyebrow>Find opted-in Safe Walk users</Eyebrow>
-            <Text style={styles.body}>Names and raw contact details stay on this phone. Phone and email identifiers are normalized and hashed locally; only the hashes are sent to find verified, discoverable Safe Walk devices. When auto-share is on, this check runs again when each real walk starts.</Text>
+            <Text style={styles.body}>Names and raw contact details stay on this phone. Phone and email identifiers are normalized and hashed locally; only the hashes are sent to find verified, discoverable Safe Walk devices. When auto-share is on, this check runs again when each real trip starts.</Text>
             <Text style={styles.small}>Country for phone numbers without a + prefix:</Text>
             <TextInput accessibilityLabel="Contact phone-number country code" maxLength={2}
               autoCapitalize="characters" value={country} onChangeText={value => setCountry(value.toUpperCase())}
@@ -176,12 +176,12 @@ export default function NativeContacts() {
             <Eyebrow>Device settings</Eyebrow>
             <View style={styles.setting}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.name}>Automatically share new walks</Text>
+                <Text style={styles.name}>Automatically share new trips</Text>
                 <Text style={styles.small}>{c.profile.autoShare
-                  ? "On by default and currently on. If this device is verified and Contacts access is already granted, each real walk is added to every matched, opted-in contact's inbox. Turning this off affects future walks, not shares in progress."
-                  : "Currently off. New walks are not automatically shared; turning it on applies to future walks only and does not change a share already in progress."}</Text>
+                  ? "On by default and currently on. If this device is verified and Contacts access is already granted, each real trip is added to every matched, opted-in contact's inbox. Turning this off affects future trips, not shares in progress."
+                  : "Currently off. New trips are not automatically shared; turning it on applies to future trips only and does not change a share already in progress."}</Text>
               </View>
-              <Switch accessibilityLabel="Automatically share new walks with matched Safe Walk contacts"
+              <Switch accessibilityLabel="Automatically share new trips with matched Safe Walk contacts"
                 value={c.profile.autoShare} disabled={c.busy} onValueChange={c.autoShare} />
             </View>
             <Text style={styles.small}>Safe Walk checks locally hashed phone/email identifiers only when Contacts access is already granted; it will not ask for access at walk start. Names and raw contact details stay on this phone. Push notifications are best-effort. Contacts without an app match are not messaged automatically.</Text>
@@ -244,7 +244,7 @@ function InboxRow({ item, onPress }: { item: ReceivedTrip; onPress: () => void }
   return <Pressable accessibilityRole="button" accessibilityLabel={`Open ${status.toLowerCase()} shared trip`}
     onPress={onPress} style={styles.inboxRow}>
     <View style={{ flex: 1 }}>
-      <Text style={styles.name}>{item.demo ? "Demo walk" : "Shared walk"} · {status}</Text>
+      <Text style={styles.name}>{item.demo ? item.travelMode === "driving" ? "Demo drive" : "Demo walk" : item.travelMode === "driving" ? "Shared drive" : "Shared walk"} · {status}</Text>
       <Text style={styles.small}>ETA {new Date(item.etaAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · Tap to open live preview</Text>
     </View>
     <Text style={styles.back}>›</Text>

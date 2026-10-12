@@ -9,9 +9,9 @@ import type { WidgetState } from "../../shared/contacts";
 type NotificationRow = { id: string; trip_id: string; installation_id: string; event: string; attempts: number; push_token: string | null; push_start_token: string | null; platform: string };
 type TripSnapshot = WidgetState;
 function snapshot(tripId: string): TripSnapshot | null {
-  const t = database.prepare("SELECT id,share_code,status,eta_at,last_update_at,expires_at,demo FROM trips WHERE id = ?")
-    .get(tripId) as { id: string; share_code: string; status: WidgetState["status"]; eta_at: number; last_update_at: number | null; expires_at: number; demo: number } | undefined;
-  return t ? { shareCode: t.share_code, status: t.expires_at <= Date.now() ? "expired" : t.status, etaAt: t.eta_at, lastUpdateAt: t.last_update_at, expiresAt: t.expires_at, demo: !!t.demo } : null;
+  const t = database.prepare("SELECT id,share_code,status,eta_at,last_update_at,expires_at,demo,travel_mode FROM trips WHERE id = ?")
+    .get(tripId) as { id: string; share_code: string; status: WidgetState["status"]; eta_at: number; last_update_at: number | null; expires_at: number; demo: number; travel_mode: WidgetState["travelMode"] } | undefined;
+  return t ? { shareCode: t.share_code, status: t.expires_at <= Date.now() ? "expired" : t.status, etaAt: t.eta_at, lastUpdateAt: t.last_update_at, expiresAt: t.expires_at, demo: !!t.demo, travelMode: t.travel_mode } : null;
 }
 function enqueue(tripId: string, installationId: string, event: string) {
   database.prepare("INSERT INTO notification_outbox(id,trip_id,installation_id,event,next_attempt_at,created_at) VALUES(?,?,?,?,?,?)")
@@ -19,7 +19,7 @@ function enqueue(tripId: string, installationId: string, event: string) {
 }
 export function shareToInstallations(tripId: string, writeToken: string | undefined, sender: Installation, ids: unknown) {
   const trip = writable(tripId, writeToken);
-  if (trip.status !== "active") throw new HttpError(409, "Share an active trip. This walk has ended.");
+  if (trip.status !== "active") throw new HttpError(409, "Share an active trip. This trip has ended.");
   if (!installationProfile(sender).verifiedKinds.length) throw new HttpError(403, "Verify your phone or email before sharing to app contacts.");
   if (!Array.isArray(ids) || !ids.length || ids.length > 250 || ids.some(id => typeof id !== "string" || !/^[a-f0-9-]{36}$/.test(id))) throw new HttpError(400, "Choose up to 250 app devices.");
   let sharedCount = 0, notificationsQueued = 0;
@@ -41,7 +41,7 @@ export function shareToInstallations(tripId: string, writeToken: string | undefi
   return { sharedCount, notificationsQueued };
 }
 export function receivedTrips(installation: Installation) {
-  return database.prepare(`SELECT t.share_code AS shareCode,t.status,t.started_at AS startedAt,t.eta_at AS etaAt,t.expires_at AS expiresAt,t.demo
+  return database.prepare(`SELECT t.share_code AS shareCode,t.status,t.started_at AS startedAt,t.eta_at AS etaAt,t.expires_at AS expiresAt,t.demo,t.travel_mode AS travelMode
     FROM trips t JOIN trip_recipients r ON r.trip_id = t.id WHERE r.installation_id = ? AND t.expires_at > ? ORDER BY r.created_at DESC LIMIT 30`)
     .all(installation.id, Date.now()).map((row: any) => ({ ...row, demo: !!row.demo }));
 }
@@ -78,7 +78,7 @@ export const notificationTransport = {
     const visible = event !== "refresh";
     const title = state.status === "help" ? "Safe Walk: help requested" : state.status === "arrived" ? "Safe Walk: contact arrived" : "A contact shared a Safe Walk";
     const body = state.status === "help"
-      ? "Open the app to see the last shared location. Contact your walker directly."
+      ? "Open the app to see the last shared location. Contact them directly."
       : state.status === "arrived"
         ? "Your contact confirmed they’ve arrived. Location sharing has stopped."
         : "Tap to open the live tracking map.";

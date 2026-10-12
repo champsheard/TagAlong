@@ -31,18 +31,18 @@ export default function Contacts() {
       {c.refreshError ? <Notice tone="warning">Shared trips couldn't refresh. {c.refreshError}</Notice> : null}
       {linkNotice ? <Notice>{linkNotice}</Notice> : null}
       {c.profile ? <View style={common.card}>
-        <Eyebrow>Shared walks</Eyebrow>
+        <Eyebrow>Shared trips</Eyebrow>
         <Text style={s.body}>New app shares appear here automatically. Open one to see its live tracking view.</Text>
         {c.inbox.length ? c.inbox.map(t => <Pressable key={t.shareCode} accessibilityRole="button" onPress={() => router.push(`/track/${t.shareCode}`)} style={s.contact}>
-          <View><Text style={s.name}>{t.demo ? "Demo walk" : "Shared walk"} · {t.status === "help" ? "Help requested" : t.status === "arrived" ? "Arrived" : "Active"}</Text><Text style={s.small}>ETA {new Date(t.etaAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · Open tracking map</Text></View>
-        </Pressable>) : <Text style={s.small}>No unexpired walks have been shared with this device.</Text>}
+          <View><Text style={s.name}>{t.demo ? t.travelMode === "driving" ? "Demo drive" : "Demo walk" : t.travelMode === "driving" ? "Shared drive" : "Shared walk"} · {t.status === "help" ? "Help requested" : t.status === "arrived" ? "Arrived" : "Active"}</Text><Text style={s.small}>ETA {new Date(t.etaAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · Open tracking map</Text></View>
+        </Pressable>) : <Text style={s.small}>No unexpired trips have been shared with this device.</Text>}
       </View> : null}
-      {trip ? <View style={common.card}><Eyebrow>Your active walk</Eyebrow><Text style={s.body}>Choose an app contact below, or send the private link through your usual messaging app.</Text><ActionButton title="Share a link with anyone" secondary onPress={sendLink} style={{ marginTop: 12 }} /></View> : null}
+      {trip ? <View style={common.card}><Eyebrow>{`Your active ${trip.travelMode === "driving" ? "drive" : "walk"}`}</Eyebrow><Text style={s.body}>Choose an app contact below, or send the private link through your usual messaging app.</Text><ActionButton title="Share a link with anyone" secondary onPress={sendLink} style={{ marginTop: 12 }} /></View> : null}
       <View style={common.card}>
         <Eyebrow>Privacy and choice</Eyebrow>
         <Text style={s.body}>Contact names stay on your phone. Phone numbers and emails are normalized and hashed on-device for matching. Safe Walk stores keyed matching hashes, not your address book.</Text>
         <Text style={s.body}>To prove ownership, your own phone number or email is sent temporarily to the server and its verification provider. Other verified app users who have that identifier can discover your enrolled device.</Text>
-        <Text style={s.body}>Contact sync is opt-in. You can hide or remove enrollment below. Walk planning and link tracking stay account-free.</Text>
+        <Text style={s.body}>Contact sync is opt-in. You can hide or remove enrollment below. Trip planning and link tracking stay account-free.</Text>
         {!c.profile && !c.loading ? <ActionButton title="Enable optional app contacts" onPress={c.enroll} loading={c.busy} style={{ marginTop: 12 }} /> : null}
       </View>
       {c.profile ? <View style={common.card}>

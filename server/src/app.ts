@@ -4,7 +4,7 @@ import path from "node:path";
 import { existsSync } from "node:fs";
 import { database } from "./db.js";
 import { geocode } from "./geocode";
-import { demoRoutes, walkingRoutes } from "./routes";
+import { demoRoutes, planRoutes } from "./routes";
 import { createTrip, endTrip, trackTrip, updateLocation } from "./trips";
 import { HttpError } from "./errors";
 import { rateLimit } from "./rateLimit";
@@ -51,7 +51,7 @@ app.post("/api/geocode", async (request, response) => {
 });
 app.get("/api/demo", (_request, response) => response.json(demoRoutes()));
 app.post("/api/routes", rateLimit(30, 3600000), async (request, response) => {
-  response.json(await walkingRoutes(request.body?.from, request.body?.to));
+  response.json(await planRoutes(request.body?.from, request.body?.to, request.body?.travelMode));
 });
 app.post("/api/trips", rateLimit(20, 3600000), (request, response) => {
   response.status(201).json(createTrip(request.body ?? {}));

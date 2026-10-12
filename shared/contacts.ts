@@ -1,4 +1,5 @@
 import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js/min";
+import type { TravelMode } from "./types";
 
 export type IdentifierKind = "phone" | "email";
 export type InstallationSession = { installationId: string; authToken: string };
@@ -18,10 +19,10 @@ export type DeviceContact = {
 export type ContactsConfig = {
   smsVerificationAvailable: boolean; emailVerificationAvailable: boolean; remoteWidgetsAvailable: boolean;
 };
-export type ReceivedTrip = { shareCode: string; status: "active" | "arrived" | "help"; startedAt: number; etaAt: number; expiresAt: number; demo: boolean };
+export type ReceivedTrip = { shareCode: string; status: "active" | "arrived" | "help"; startedAt: number; etaAt: number; expiresAt: number; demo: boolean; travelMode: TravelMode };
 export type WidgetState = {
   shareCode: string; status: "active" | "arrived" | "help" | "expired";
-  etaAt: number; lastUpdateAt: number | null; expiresAt: number; demo: boolean;
+  etaAt: number; lastUpdateAt: number | null; expiresAt: number; demo: boolean; travelMode: TravelMode;
 };
 export function normalizeIdentifier(kind: IdentifierKind, value: string, country: string = "US") {
   if (typeof value !== "string" || value.length > 254) return null;

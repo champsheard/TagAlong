@@ -13,6 +13,12 @@ import { common, palette } from "../constants/theme";
 import { useContacts } from "../hooks/useContacts";
 
 const formatMinutes = (seconds: number) => Math.max(1, Math.round(seconds / 60));
+const formatDistance = (meters: number) => {
+  const region = Intl.NumberFormat().resolvedOptions().locale.split("-")[1]?.toUpperCase();
+  return ["US", "LR", "MM"].includes(region ?? "")
+    ? `${Math.round(meters / 1609.344)} mi`
+    : `${(meters / 1000).toFixed(meters < 10000 ? 1 : 0)} km`;
+};
 const routeColors = { fastest: "#87977F", selected: "#426b49" };
 
 export default function Index() {
@@ -60,11 +66,11 @@ export default function Index() {
       ? walk.demo || !!walk.trip?.demo
       : walk.phase === "routes" && !!walk.result?.demo;
   const mapContextLabel = walk.phase === "walking"
-    ? mapIsDemo ? "SIMULATED WALK" : "LIVE WALK"
+    ? mapIsDemo ? `SIMULATED ${walk.travelMode === "driving" ? "DRIVE" : "WALK"}` : `LIVE ${walk.travelMode === "driving" ? "DRIVE" : "WALK"}`
     : walk.phase === "routes"
       ? mapIsDemo ? "DEMO ROUTE · SAMPLE" : "ROUTE PREVIEW"
       : walk.phase === "finished"
-        ? mapIsDemo ? "DEMO WALK ENDED" : "WALK ENDED"
+        ? mapIsDemo ? "DEMO TRIP ENDED" : "TRIP ENDED"
         : "MAP PREVIEW";
   useEffect(() => { setActualPanelHeight(panelHeight); }, [panelHeight]);
   useEffect(() => () => {
@@ -90,7 +96,7 @@ export default function Index() {
     void walk.startTrip();
   }
 
-  if (walk.restoring) return <View style={[common.page, s.center]}><ActivityIndicator size="large" color={palette.evergreen} /><Text style={s.loading}>Checking for an active walk…</Text></View>;
+  if (walk.restoring) return <View style={[common.page, s.center]}><ActivityIndicator size="large" color={palette.evergreen} /><Text style={s.loading}>Checking for an active trip…</Text></View>;
 
   return <View style={s.screen}>
     <View style={StyleSheet.absoluteFill}>
@@ -105,7 +111,7 @@ export default function Index() {
     <View style={[s.topBar, { paddingTop: insets.top + 8 }]}>
       <View style={s.brandGroup}>
         <View style={s.brandMark}><View style={s.brandRing} /><Text style={s.brandMarkText}>SW</Text></View>
-        <View><Text style={s.brand}>Safe Walk</Text><Text style={s.tagline}>{walk.phase === "walking" ? "Your walk, on your terms" : "A steadier way home"}</Text></View>
+        <View><Text style={s.brand}>Safe Walk</Text><Text style={s.tagline}>{walk.phase === "walking" ? walk.travelMode === "driving" ? "Your drive, on your terms" : "Your walk, on your terms" : "A steadier way home"}</Text></View>
       </View>
         <Pressable accessibilityRole="button" accessibilityLabel="Contacts" onPress={() => router.push("/contacts")} style={({ pressed }) => [s.contactsButton, pressed && s.pressed]}>
           <Text style={s.contactsGlyph}>+</Text><Text style={s.contactsLabel}>Contacts</Text>
@@ -130,29 +136,41 @@ export default function Index() {
         >
           {walk.phase === "plan" ? <>
             <View style={s.planHeading}>
-              <View style={{ flex: 1 }}><Eyebrow>PLAN A WALK</Eyebrow><Text style={s.panelTitle}>Where are you headed?</Text></View>
+              <View style={{ flex: 1 }}><Eyebrow>{`PLAN A ${walk.travelMode === "driving" ? "DRIVE" : "WALK"}`}</Eyebrow><Text style={s.panelTitle}>Where are you headed?</Text></View>
               <View style={s.mapKey}><View style={s.mapKeyDot} /><Text style={s.mapKeyText}>MAP</Text></View>
             </View>
-            <Text style={s.panelSubtitle}>Choose a destination and compare walking routes.</Text>
+            <Text style={s.panelSubtitle}>{walk.travelMode === "driving"
+              ? "Compare driving routes up to 300 km (186 mi) and five hours. This is tracking, not navigation."
+              : "Choose a destination and compare walking routes within 15 km."}</Text>
+            <View style={s.modeSwitch}>
+              <Pressable accessibilityRole="radio" accessibilityState={{ checked: walk.travelMode === "walking" }}
+                onPress={() => walk.setTravelMode("walking")} style={[s.modeOption, walk.travelMode === "walking" && s.modeSelected]}>
+                <Text style={[s.modeOptionText, walk.travelMode === "walking" && s.modeSelectedText]}>Walk</Text>
+              </Pressable>
+              <Pressable accessibilityRole="radio" accessibilityState={{ checked: walk.travelMode === "driving" }}
+                onPress={() => walk.setTravelMode("driving")} style={[s.modeOption, walk.travelMode === "driving" && s.modeSelected]}>
+                <Text style={[s.modeOptionText, walk.travelMode === "driving" && s.modeSelectedText]}>Drive</Text>
+              </Pressable>
+            </View>
             {walk.routingAvailable === false ? <Notice tone="warning">Route planning is not configured on this server yet. Address search still works; try a Demo walk to explore the experience.</Notice> : null}
             {!contacts.loading && <View style={s.sharedPreview}>
               <View style={s.sharedPreviewTop}>
-                <Eyebrow>SHARED WALKS</Eyebrow>
-                <Text style={s.sharedCount}>{contacts.error ? "Unavailable" : activeSharedTrips.length ? `${activeSharedTrips.length} active` : "No active walks"}</Text>
+                <Eyebrow>SHARED TRIPS</Eyebrow>
+                <Text style={s.sharedCount}>{contacts.error ? "Unavailable" : activeSharedTrips.length ? `${activeSharedTrips.length} active` : "No active trips"}</Text>
               </View>
-              {contacts.error ? <Text style={s.sharedEmpty}>Shared walks couldn’t be loaded. Check your connection.</Text> : null}
+              {contacts.error ? <Text style={s.sharedEmpty}>Shared trips couldn’t be loaded. Check your connection.</Text> : null}
               {visibleSharedTrips.length
                 ? visibleSharedTrips.map((trip, index) => {
                   const minutes = Math.max(0, Math.ceil((trip.etaAt - walk.now) / 60000));
                   return <View key={trip.shareCode} style={s.sharedRow}>
                     <View style={s.sharedDot} />
                     <View style={s.sharedCopy}>
-                      <Text style={s.sharedTitle}>{trip.demo ? "Shared demo walk" : "A shared walk is active"}</Text>
+                      <Text style={s.sharedTitle}>{trip.demo ? trip.travelMode === "driving" ? "Shared demo drive" : "Shared demo walk" : trip.travelMode === "driving" ? "A shared drive is active" : "A shared walk is active"}</Text>
                       <Text style={s.sharedSubtitle}>Estimated arrival in {minutes} min</Text>
                     </View>
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel={`View shared walk ${index + 1}`}
+                      accessibilityLabel={`View shared trip ${index + 1}`}
                       onPress={() => router.push({ pathname: "/track/[code]", params: { code: trip.shareCode } })}
                       style={s.sharedViewButton}
                     >
@@ -187,7 +205,7 @@ export default function Index() {
             <View style={s.planActions}>
               <ActionButton title={walk.busy ? "Finding routes…" : "Compare routes"} onPress={walk.planRoutes} loading={walk.busy} disabled={!walk.to} style={{ flex: 1 }} />
               <Pressable accessibilityRole="button" onPress={walk.loadDemo} disabled={walk.busy} style={({ pressed }) => [s.demoButton, pressed && s.pressed]}>
-                <Text style={s.demoButtonText}>{walk.busy ? "…" : "Demo"}</Text>
+                <Text style={s.demoButtonText}>{walk.busy ? "…" : walk.travelMode === "driving" ? "Demo walk" : "Demo"}</Text>
               </Pressable>
             </View>
             <Text style={s.quietNote}>You decide when to start and when sharing ends.</Text>
@@ -217,37 +235,41 @@ export default function Index() {
                 return <Pressable key={option.id} accessibilityRole="radio" accessibilityState={{ checked: selected }} onPress={() => walk.selectRoute(option.id)}
                   style={({ pressed }) => [s.routeCard, selected && s.routeSelected, pressed && s.pressed]}>
                   <View style={s.routeTop}>
-                    <View style={{ flex: 1 }}><Text style={s.routeName}>{option.label}</Text><Text style={s.routeSub}>{option.label === "Best lit" ? "Favors streets with more lighting data" : "The shortest estimated time"}</Text></View>
+                   <View style={{ flex: 1 }}><Text style={s.routeName}>{option.label}</Text><Text style={s.routeSub}>{walk.travelMode === "driving"
+                     ? option.label === "Alternative" ? "An alternate driving route" : "The fastest estimated drive"
+                     : option.label === "Best lit" ? "Favors streets with more lighting data" : "The shortest estimated time"}</Text></View>
                     <View style={[s.radio, selected && s.radioSelected]}>{selected ? <View style={s.radioCore} /> : null}</View>
                   </View>
                   <View style={s.routeMetrics}>
-                    <View><Text style={s.metricValue}>{formatMinutes(option.durationSeconds)}<Text style={s.metricUnit}> min</Text></Text><Text style={s.metricLabel}>ESTIMATED WALK</Text></View>
+                     <View><Text style={s.metricValue}>{formatMinutes(option.durationSeconds)}<Text style={s.metricUnit}> min</Text></Text><Text style={s.metricLabel}>{walk.travelMode === "driving" ? "ESTIMATED DRIVE" : "ESTIMATED WALK"}</Text></View>
                     <View style={s.metricDivider} />
-                    <View><Text style={s.metricValue}>{score == null ? "N/A" : `${Math.round(score)}/100`}</Text><Text style={s.metricLabel}>{score == null ? "UNAVAILABLE" : "LIGHTING ESTIMATE"}</Text></View>
-                    <View style={s.extraPill}><Text style={s.extraText}>+{extra} min</Text></View>
+                     <View><Text style={s.metricValue}>{walk.travelMode === "driving" ? formatDistance(option.distanceMeters) : score == null ? "N/A" : `${Math.round(score)}/100`}</Text><Text style={s.metricLabel}>{walk.travelMode === "driving" ? "ROUTE DISTANCE" : score == null ? "UNAVAILABLE" : "LIGHTING ESTIMATE"}</Text></View>
+                     {(walk.result?.routes.length ?? 0) > 1 ? <View style={s.extraPill}><Text style={s.extraText}>+{extra} min</Text></View> : null}
                   </View>
-                  <Text style={s.reason}>{option.lightBreakdown.reason}</Text>
-                  {option.lightBreakdown.limitedData || option.lightBreakdown.unavailable ? <Text style={s.limited}>Lighting information is limited for part of this route.</Text> : null}
+                   {walk.travelMode === "walking" ? <>
+                     <Text style={s.reason}>{option.lightBreakdown.reason}</Text>
+                     {option.lightBreakdown.limitedData || option.lightBreakdown.unavailable ? <Text style={s.limited}>Lighting information is limited for part of this route.</Text> : null}
+                   </> : null}
                 </Pressable>;
               })}
             </View>
-            <View style={s.disclaimer}><Text style={s.disclaimerTitle}>Lighting is an estimate</Text><Text style={s.body}>Scores reflect available lighting data—not a guarantee that a street is lit, open, or safe right now.</Text></View>
+             {walk.travelMode === "walking" ? <View style={s.disclaimer}><Text style={s.disclaimerTitle}>Lighting is an estimate</Text><Text style={s.body}>Scores reflect available lighting data—not a guarantee that a street is lit, open, or safe right now.</Text></View> : null}
             {!walk.result.demo ? <Pressable accessibilityRole="switch" accessibilityState={{ checked: walk.demo }} onPress={() => walk.setDemo(!walk.demo)} style={s.simulationToggle}>
-              <View style={{ flex: 1 }}><Text style={s.simulationTitle}>Demo walk</Text><Text style={s.simulationHint}>Simulate movement for 90 seconds along this route.</Text></View>
+               <View style={{ flex: 1 }}><Text style={s.simulationTitle}>Simulate movement</Text><Text style={s.simulationHint}>Move along this route for 90 seconds to preview tracking.</Text></View>
               <View style={[s.switchTrack, walk.demo && s.switchOn]}><View style={[s.switchThumb, walk.demo && s.thumbOn]} /></View>
             </Pressable> : null}
-            {walk.demo && !walk.result.demo ? <View style={{ marginTop: 10 }}><Notice tone="warning">Simulated movement follows this route for 90 seconds. Lighting remains an estimate.</Notice></View> : null}
+             {walk.demo && !walk.result.demo ? <View style={{ marginTop: 10 }}><Notice tone="warning">Simulated movement follows this route for 90 seconds. It does not share a real location.</Notice></View> : null}
             {walk.error ? <View style={{ marginTop: 10 }}><Notice tone="danger">{walk.error}</Notice></View> : null}
             <View style={s.buttonRow}>
-              <ActionButton title="Start walk" onPress={() => setShowStartConfirm(true)} disabled={!route} style={{ flex: 1 }} />
+               <ActionButton title={walk.travelMode === "driving" ? "Start drive" : "Start walk"} onPress={() => setShowStartConfirm(true)} disabled={!route} style={{ flex: 1 }} />
             </View>
             <Pressable accessibilityRole="button" onPress={walk.loadDemo} style={s.textAction}><Text style={s.textActionText}>Try a simulated Demo walk</Text></Pressable>
           </> : null}
 
           {walk.phase === "walking" && walk.trip ? <>
-            <View style={s.phaseTop}><View style={{ flex: 1 }}><Eyebrow>YOUR WALK IS LIVE</Eyebrow><Text style={s.panelTitle}>You’re on your way.</Text></View><View style={s.livePill}><View style={s.liveDot} /><Text style={s.liveText}>{walk.sendError || (!walk.foreground && !walk.backgroundEnabled) ? "PAUSED" : "SHARING ON"}</Text></View></View>
+            <View style={s.phaseTop}><View style={{ flex: 1 }}><Eyebrow>{`YOUR ${walk.travelMode === "driving" ? "DRIVE" : "WALK"} IS LIVE`}</Eyebrow><Text style={s.panelTitle}>You’re on your way.</Text></View><View style={s.livePill}><View style={s.liveDot} /><Text style={s.liveText}>{walk.sendError || (!walk.foreground && !walk.backgroundEnabled) ? "PAUSED" : "SHARING ON"}</Text></View></View>
             <View style={s.walkStats}><View><Text style={s.statLarge}>{Math.max(0, Math.ceil((walk.trip.etaAt - walk.now) / 60000))}</Text><Text style={s.metricLabel}>MIN TO ARRIVE</Text></View><View style={s.metricDivider} /><View style={{ flex: 1 }}><Text numberOfLines={1} style={s.statRoute}>{walk.trip.route.label}</Text><Text style={s.metricLabel}>CHOSEN ROUTE</Text></View></View>
-            {walk.demo ? <View style={{ marginTop: 12 }}><Notice tone="warning">Demo walk · Location movement is simulated. Keep this screen open.</Notice></View> : null}
+            {walk.demo ? <View style={{ marginTop: 12 }}><Notice tone="warning">Demo {walk.travelMode === "driving" ? "drive" : "walk"} · Location movement is simulated. Keep this screen open.</Notice></View> : null}
             {walk.error ? <View style={{ marginTop: 12 }}><Notice tone="danger">{walk.error}</Notice></View> : null}
             {!!walk.sendError ? <View style={{ marginTop: 12 }}><Notice tone="warning">Connection issue · {walk.sendError} Your contact may see an older location.</Notice></View> : null}
             {!!walk.backgroundNotice ? <View style={{ marginTop: 12 }}><Notice tone="warning">{walk.backgroundNotice}</Notice></View> : null}
@@ -270,7 +292,7 @@ export default function Index() {
             {walk.finishedStatus === "help" ? <Notice tone="danger">If you are in immediate danger, call 911 now. Safe Walk cannot call for you.</Notice> : null}
             {!!walk.sendError ? <View style={{ marginTop: 13 }}><Notice tone="warning">{walk.sendError}</Notice></View> : null}
             {walk.trip?.pendingEnd ? <Text style={s.centerNote}>Your contact’s status is waiting for a connection. Keep this screen open; we’ll retry automatically. Starting another trip is unavailable until it sends.</Text> : null}
-            {walk.finishedStatus === "arrived" && !walk.demo && !walk.trip?.pendingEnd ? <ArrivalFeedback /> : null}
+            {walk.finishedStatus === "arrived" && !walk.demo && walk.travelMode === "walking" && !walk.trip?.pendingEnd ? <ArrivalFeedback /> : null}
             {!walk.trip?.pendingEnd ? <ActionButton title="Plan another walk" onPress={walk.reset} style={{ marginTop: 20 }} /> : null}
           </> : null}
         </ScrollView>
@@ -279,26 +301,27 @@ export default function Index() {
     <Modal visible={showStartConfirm && walk.phase === "routes" && !!route} transparent animationType="fade" onRequestClose={() => setShowStartConfirm(false)} onDismiss={onStartConfirmDismiss}>
       <View style={s.modalBackdrop}><View style={[s.modalCard, s.startModalCard]}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.startModalContent}>
-          <Eyebrow>BEFORE YOU START</Eyebrow>
+          <Eyebrow>{walk.travelMode === "driving" ? "BEFORE YOU DRIVE" : "BEFORE YOU START"}</Eyebrow>
           <Text style={s.modalTitle}>Share on your terms.</Text>
           {route ? <View style={s.startSummary}>
-            <Text style={s.startSummaryTitle}>{route.label} · {formatMinutes(route.durationSeconds)} min</Text>
+            <Text style={s.startSummaryTitle}>{route.label} · {formatMinutes(route.durationSeconds)} min{walk.travelMode === "driving" ? ` · ${formatDistance(route.distanceMeters)}` : ""}</Text>
             <Text style={s.body}>{walk.from?.label ?? "Current location"} → {walk.to?.label ?? "Destination"}</Text>
           </View> : null}
           <View style={s.startDisclosure}>
-            <Text style={s.consentHeadline}>Your walk only shares when you start it.</Text>
+            <Text style={s.consentHeadline}>Your trip only shares when you start it.</Text>
             <Text style={s.consentLine}>{Platform.OS === "web"
               ? "If you choose to share the private trip link, anyone holding it can see your live location until sharing ends. On the web, updates work only while this page stays open."
-              : "On enrolled devices, Auto-share is on by default. If it is enabled, this device is verified, and Contacts access was already granted, this real walk is added to every matched app contact’s inbox at start. You can turn Auto-share off in Contacts before starting."}</Text>
-            {Platform.OS !== "web" ? <Text style={s.consentLine}>Safe Walk will not ask for Contacts access when a walk starts. If access is off, there is no automatic share. Contacts without an app match are not messaged. Push is best-effort; turning Auto-share off affects future walks only.</Text> : null}
+              : "On enrolled devices, Auto-share is on by default. If it is enabled, this device is verified, and Contacts access was already granted, this real trip is added to every matched app contact’s inbox at start. You can turn Auto-share off in Contacts before starting."}</Text>
+            {Platform.OS !== "web" ? <Text style={s.consentLine}>Safe Walk will not ask for Contacts access when a trip starts. If access is off, there is no automatic share. Contacts without an app match are not messaged. Push is best-effort; turning Auto-share off affects future trips only.</Text> : null}
             {Platform.OS !== "web" ? <Text style={s.consentLine}>Anyone holding the private trip link can view it. Share it only with someone you trust.</Text> : null}
-            {Platform.OS !== "web" ? <Text style={s.consentLine}>Sharing is active only while a real trip is active. After you allow background location once, real walks continue updating while the app is in the background. If permission is declined or unavailable, updates run only while the app is open. Android shows an ongoing location notification. Background location needs a development build; Expo Go does not support it on Android and supports it only in the iOS simulator.</Text> : null}
+            {Platform.OS !== "web" ? <Text style={s.consentLine}>Sharing is active only while a real trip is active. After you allow background location once, real trips continue updating while the app is in the background. If permission is declined or unavailable, updates run only while the app is open. Android shows an ongoing location notification. Background location needs a development build; Expo Go does not support it on Android and supports it only in the iOS simulator.</Text> : null}
+            {walk.travelMode === "driving" ? <Text style={s.consentLine}>Driving routes and arrival times are estimates only. Safe Walk is not turn-by-turn navigation and does not monitor traffic or road closures.</Text> : null}
             <Text style={s.consentLine}>Safe Walk is not a safety guarantee and does not replace calling 911 in an emergency.</Text>
           </View>
-          {walk.demo ? <View style={{ marginTop: 12 }}><Notice tone="warning">{walk.result?.demo ? "This is a simulated trip. The moving location and lighting scores are not real." : "Demo walk simulates your location along the chosen route. Lighting remains an estimate."}</Notice></View> : null}
+          {walk.demo ? <View style={{ marginTop: 12 }}><Notice tone="warning">{walk.result?.demo ? "This is a simulated trip. The moving location and lighting scores are not real." : `Demo ${walk.travelMode === "driving" ? "drive" : "walk"} simulates your location along the chosen route. It does not share a real location.`}</Notice></View> : null}
           {walk.error ? <View style={{ marginTop: 12 }}><Notice tone="danger">{walk.error}</Notice></View> : null}
         </ScrollView>
-        <ActionButton title={walk.busy ? "Starting your walk…" : "Start walk"} onPress={confirmStartTrip} loading={walk.busy} disabled={!route} style={{ marginTop: 10 }} />
+        <ActionButton title={walk.busy ? `Starting your ${walk.travelMode === "driving" ? "drive" : "walk"}…` : walk.travelMode === "driving" ? "Start drive" : "Start walk"} onPress={confirmStartTrip} loading={walk.busy} disabled={!route} style={{ marginTop: 10 }} />
         <ActionButton title="Not yet" secondary onPress={() => setShowStartConfirm(false)} style={{ marginTop: 9 }} />
       </View></View>
     </Modal>
@@ -306,9 +329,9 @@ export default function Index() {
     <Modal visible={showArrivalConfirm} transparent animationType="fade" onRequestClose={() => setShowArrivalConfirm(false)}>
       <View style={s.modalBackdrop}><View style={s.modalCard}>
         <Eyebrow>PLEASE CONFIRM</Eyebrow><Text style={s.modalTitle}>Have you arrived?</Text>
-        <Text style={s.body}>This ends location sharing. App contacts who received this walk may get a notification; link recipients can see your arrival status when they open the link.</Text>
+        <Text style={s.body}>This ends location sharing. App contacts who received this trip may get a notification; link recipients can see your arrival status when they open the link.</Text>
         <ActionButton title="Yes, I’ve arrived" onPress={() => { setShowArrivalConfirm(false); walk.endTrip("arrived"); }} style={{ marginTop: 18 }} />
-        <ActionButton title="Keep walking" secondary onPress={() => setShowArrivalConfirm(false)} style={{ marginTop: 9 }} />
+        <ActionButton title={`Continue ${walk.travelMode === "driving" ? "driving" : "walking"}`} secondary onPress={() => setShowArrivalConfirm(false)} style={{ marginTop: 9 }} />
       </View></View>
     </Modal>
 
@@ -342,6 +365,11 @@ const s = StyleSheet.create({
   planHeading: { flexDirection: "row", alignItems: "center" },
   panelTitle: { color: palette.evergreen, fontSize: 25, lineHeight: 30, fontWeight: "900", letterSpacing: -0.7 },
   panelSubtitle: { color: palette.muted, fontSize: 14, lineHeight: 20, marginTop: 4 },
+  modeSwitch: { flexDirection: "row", gap: 6, padding: 4, marginTop: 11, backgroundColor: palette.paleGreen, borderRadius: 14 },
+  modeOption: { flex: 1, minHeight: 38, alignItems: "center", justifyContent: "center", borderRadius: 11 },
+  modeSelected: { backgroundColor: palette.evergreen },
+  modeOptionText: { color: palette.muted, fontSize: 13, fontWeight: "800" },
+  modeSelectedText: { color: palette.paper },
   sharedPreview: { borderRadius: 15, backgroundColor: palette.paleGreen, padding: 12, marginTop: 14, borderWidth: 1, borderColor: palette.line },
   sharedPreviewTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   sharedCount: { color: palette.muted, fontSize: 11, fontWeight: "800" },
