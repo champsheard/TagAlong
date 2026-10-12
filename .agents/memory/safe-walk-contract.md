@@ -40,6 +40,18 @@ link only when the user chooses to send one. Keep push delivery best-effort and
 never claim delivery merely because a notification was queued. Preserve
 enrollment removal.
 
+After the server accepts a walker's confirmed arrival, notify enrolled trusted
+app contacts who received that trip and have registered push tokens. Link-only
+recipients can see the arrival status when they reopen the private link. Delivery
+is best-effort.
+
+**Why:** The user requested an arrival notification for trusted contacts, while
+the existing privacy boundary only permits push to contacts enrolled and already
+shared into that trip.
+
+**How to apply:** Trigger on the server's active-to-arrived transition, not while
+the local end command is pending; never notify unmatched contacts.
+
 The user approved background location for all real active walks after a one-time
 OS background-permission grant. If permission is denied or unavailable, keep
 updates foreground-only. Never collect background location for demos or after

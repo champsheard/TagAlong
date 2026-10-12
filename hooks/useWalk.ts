@@ -3,7 +3,7 @@ import { AppState, Platform } from "react-native";
 import * as Location from "expo-location";
 import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import { autoShareTrip } from "../lib/autoShare";
-import { api, ApiError, shareTripLink, tripLink } from "../lib/api";
+import { api, ApiError, shareTripLink } from "../lib/api";
 import {
   requestBackgroundLocationPermission, startBackgroundLocationUpdates, stopBackgroundLocationUpdates,
   type BackgroundPermissionState,
@@ -354,6 +354,5 @@ export function useWalk() {
     locateStart, loadDemo, planRoutes, startTrip, endTrip, shareTrip, reset,
     editPlan: () => { setPhase("plan"); setResult(null); setError(""); },
     clearError: () => setError(""),
-    shareUrl: trip ? tripLink(trip.shareCode) : "",
   };
 }

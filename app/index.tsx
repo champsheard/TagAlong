@@ -257,9 +257,7 @@ export default function Index() {
             <Text style={s.centerNote}>Need urgent help? Call 911. Safe Walk does not contact emergency services.</Text>
             <View style={s.shareCard}>
               <Eyebrow>OTHER WAYS TO SHARE</Eyebrow>
-              <Text style={s.body}>Use a private link for someone without an app match. Anyone holding the link can view your trip.</Text>
-              <Text selectable style={s.url}>{walk.shareUrl}</Text>
-              <ActionButton title="Share link" onPress={walk.shareTrip} style={{ marginTop: 12 }} />
+              <ActionButton title="Share link" onPress={walk.shareTrip} style={{ marginTop: 8 }} />
             </View>
             <Pressable accessibilityRole="button" onPress={() => router.push("/contacts")} style={s.contactsDuringWalk}><Text style={s.contactsDuringText}>{Platform.OS === "web" ? "Choose an app contact" : "Choose a phone contact"}</Text><Text style={s.contactsArrow}>›</Text></Pressable>
           </> : null}
@@ -308,7 +306,7 @@ export default function Index() {
     <Modal visible={showArrivalConfirm} transparent animationType="fade" onRequestClose={() => setShowArrivalConfirm(false)}>
       <View style={s.modalBackdrop}><View style={s.modalCard}>
         <Eyebrow>PLEASE CONFIRM</Eyebrow><Text style={s.modalTitle}>Have you arrived?</Text>
-        <Text style={s.body}>Confirming ends this walk, stops live location updates, and marks you as arrived for everyone following it. If you are still walking, keep the trip active.</Text>
+        <Text style={s.body}>This ends location sharing. App contacts who received this walk may get a notification; link recipients can see your arrival status when they open the link.</Text>
         <ActionButton title="Yes, I’ve arrived" onPress={() => { setShowArrivalConfirm(false); walk.endTrip("arrived"); }} style={{ marginTop: 18 }} />
         <ActionButton title="Keep walking" secondary onPress={() => setShowArrivalConfirm(false)} style={{ marginTop: 9 }} />
       </View></View>
@@ -442,7 +440,6 @@ const s = StyleSheet.create({
   statLarge: { color: palette.evergreen, fontSize: 23, fontWeight: "900" },
   statRoute: { color: palette.evergreen, fontSize: 18, fontWeight: "900" },
   shareCard: { ...common.card, marginTop: 13, padding: 15 },
-  url: { color: palette.evergreen, fontSize: 14, lineHeight: 20, fontWeight: "700", marginTop: 10, padding: 11, backgroundColor: palette.oat, borderRadius: 10 },
   noticeText: { color: palette.muted, fontSize: 12, lineHeight: 18, marginTop: 9 },
   contactsDuringWalk: { minHeight: 47, marginTop: 11, borderRadius: 13, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.oat, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   contactsDuringText: { color: palette.evergreen, fontSize: 14, fontWeight: "800" },

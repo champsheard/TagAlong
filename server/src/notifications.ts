@@ -77,11 +77,16 @@ export const notificationTransport = {
   async expo(token: string, state: WidgetState, event: string) {
     const visible = event !== "refresh";
     const title = state.status === "help" ? "Safe Walk: help requested" : state.status === "arrived" ? "Safe Walk: contact arrived" : "A contact shared a Safe Walk";
+    const body = state.status === "help"
+      ? "Open the app to see the last shared location. Contact your walker directly."
+      : state.status === "arrived"
+        ? "Your contact confirmed they’ve arrived. Location sharing has stopped."
+        : "Tap to open the live tracking map.";
     const response = await fetch("https://exp.host/--/api/v2/push/send", {
       method: "POST", signal: AbortSignal.timeout(10000),
       headers: { "Content-Type": "application/json", ...(process.env.EXPO_ACCESS_TOKEN ? { Authorization: `Bearer ${process.env.EXPO_ACCESS_TOKEN}` } : {}) },
       body: JSON.stringify({ to: token, data: { kind: "safe-walk-trip", ...state },
-        ...(visible ? { title, body: state.status === "help" ? "Open the app to see the last shared location. Contact your walker directly." : "Tap to open the live tracking map.", sound: "default", channelId: "walks", priority: "high" } : { priority: "high", _contentAvailable: true }) }),
+        ...(visible ? { title, body, sound: "default", channelId: "walks", priority: "high" } : { priority: "high", _contentAvailable: true }) }),
     });
     if (!response.ok) throw new Error("Notification service unavailable");
     const result = await response.json() as { data?: { status: string; details?: { error?: string } } };

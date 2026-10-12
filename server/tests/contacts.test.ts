@@ -13,6 +13,7 @@ let identities: typeof import("../src/identities");
 let notifications: typeof import("../src/notifications");
 let gateway: typeof import("../src/verificationGateway");
 let sentCode = "", sends = 0, queuedPushes = 0;
+const pushDeliveries: { event: string; status: string }[] = [];
 const geometry = { type: "LineString", coordinates: [[0, 0], [0.001, 0]] };
 before(async () => {
   const { app } = await import("../src/app");
@@ -20,7 +21,9 @@ before(async () => {
   notifications = await import("../src/notifications"); gateway = await import("../src/verificationGateway");
   gateway.verificationGateway.capabilities = async () => ({ at: Date.now(), sms: true, email: true });
   gateway.verificationGateway.send = async (_kind, _destination, code) => { sentCode = code; sends++; };
-  notifications.notificationTransport.expo = async () => { queuedPushes++; return true; };
+  notifications.notificationTransport.expo = async (_token, state, event) => {
+    queuedPushes++; pushDeliveries.push({ event, status: state.status }); return true;
+  };
   server = app.listen(0, "127.0.0.1");
   await new Promise<void>(resolve => server.once("listening", resolve));
   origin = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
@@ -124,6 +127,22 @@ test("app sharing needs both sender auth and trip write auth; pushes, inbox, and
   const job = db.database.prepare("SELECT * FROM notification_outbox WHERE trip_id = ? AND event = 'help'").get(t.tripId);
   assert.ok(job);
   await notifications.processNotifications();
+  assert.ok(pushDeliveries.some(delivery => delivery.event === "help" && delivery.status === "help"));
+
+  const arrivalTrip = (await call("/trips", "POST", { routeGeometry: geometry, etaSeconds: 90, demo: false })).data;
+  assert.equal((await call(`/trips/${arrivalTrip.tripId}/share`, "POST", body, sender.authToken,
+    { "X-Trip-Token": arrivalTrip.writeToken })).status, 200);
+  await notifications.processNotifications();
+  const beforeArrival = pushDeliveries.length;
+  assert.equal((await call(`/trips/${arrivalTrip.tripId}/end`, "POST", { status: "arrived" }, arrivalTrip.writeToken)).status, 200);
+  const arrivalJob = db.database.prepare("SELECT state FROM notification_outbox WHERE trip_id = ? AND event = 'arrived'").get(arrivalTrip.tripId) as { state: string } | undefined;
+  assert.ok(arrivalJob);
+  await notifications.processNotifications();
+  assert.deepEqual(pushDeliveries.slice(beforeArrival), [{ event: "arrived", status: "arrived" }]);
+  assert.equal((db.database.prepare("SELECT state FROM notification_outbox WHERE trip_id = ? AND event = 'arrived'").get(arrivalTrip.tripId) as { state: string }).state, "accepted");
+  assert.equal((await call(`/trips/${arrivalTrip.tripId}/end`, "POST", { status: "arrived" }, arrivalTrip.writeToken)).status, 200);
+  assert.equal((db.database.prepare("SELECT COUNT(*) AS count FROM notification_outbox WHERE trip_id = ? AND event = 'arrived'").get(arrivalTrip.tripId) as { count: number }).count, 1);
+
   await call("/installations/me", "DELETE", undefined, receiver.authToken);
   assert.equal((db.database.prepare("SELECT COUNT(*) AS n FROM trip_recipients WHERE installation_id = ?").get(receiver.installationId) as { n: number }).n, 0);
 });
