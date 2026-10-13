@@ -73,13 +73,18 @@ warning.
 **How to apply:** Check for a ready Metro bundle and tunnel before treating this
 specific DevTools warning as fatal or adding more system libraries.
 
-Avoid stacking keyboard avoidance on the walk drawer. Use the ScrollView's
-automatic keyboard insets on iOS and the drawer's KeyboardAvoidingView height
-behavior on Android; do not also resize the drawer from keyboard events.
+Keep one keyboard-avoidance path per platform: the ScrollView's automatic
+keyboard insets on iOS and the drawer's KeyboardAvoidingView height behavior on
+Android. On mobile keyboard show, the drawer may expand once to its maximum
+height, but must not subtract keyboard height or add a second resize adjustment.
 
 **Why:** The drawer, KeyboardAvoidingView, and ScrollView were all adjusting for
 the same keyboard, creating excess spacing and making focused search fields hard
-to keep visible.
+to keep visible. The user later requested that opening a mobile input maximize
+the drawer; a one-time expansion meets that request without duplicating keyboard
+avoidance.
 
 **How to apply:** Keep one keyboard-adjustment path per platform and test focused
-address fields on a device after changing drawer or keyboard behavior.
+address fields on a device after changing drawer or keyboard behavior. Use the
+keyboard event only to move the drawer to its available maximum, not to compute
+a keyboard-based height.
