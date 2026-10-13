@@ -292,7 +292,7 @@ export default function Index() {
             {walk.finishedStatus === "help" ? <Notice tone="danger">If you are in immediate danger, call 911 now. Safe Walk cannot call for you.</Notice> : null}
             {!!walk.sendError ? <View style={{ marginTop: 13 }}><Notice tone="warning">{walk.sendError}</Notice></View> : null}
             {walk.trip?.pendingEnd ? <Text style={s.centerNote}>Your contact’s status is waiting for a connection. Keep this screen open; we’ll retry automatically. Starting another trip is unavailable until it sends.</Text> : null}
-            {walk.finishedStatus === "arrived" && !walk.demo && walk.travelMode === "walking" && !walk.trip?.pendingEnd ? <ArrivalFeedback /> : null}
+            {walk.finishedStatus === "arrived" && !walk.demo && walk.travelMode === "walking" && !walk.trip?.pendingEnd ? <ArrivalFeedback streetNames={walk.selectedRoute?.streetNames ?? walk.trip?.route.streetNames ?? []} /> : null}
             {!walk.trip?.pendingEnd ? <ActionButton title="Plan another walk" onPress={walk.reset} style={{ marginTop: 20 }} /> : null}
           </> : null}
         </ScrollView>

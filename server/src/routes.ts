@@ -10,6 +10,22 @@ const MAX_WALKING_ROUTE_DISTANCE = 25_000;
 const MAX_DRIVING_DISTANCE = 300_000;
 const MAX_DRIVING_ETA = 5 * 60 * 60;
 
+type OrsFeature = {
+  geometry: Geometry;
+  properties: {
+    summary: { distance: number; duration: number };
+    segments?: { steps?: { name?: string | null }[] }[];
+  };
+};
+
+function namedStreets(feature: OrsFeature): { streetNames?: string[] } {
+  const names = [...new Set((feature.properties.segments ?? [])
+    .flatMap(segment => segment.steps ?? [])
+    .map(step => typeof step.name === "string" ? step.name.trim() : "")
+    .filter(name => name && name !== "-"))].slice(0, 40);
+  return names.length ? { streetNames: names } : {};
+}
+
 export async function planRoutes(from: Point, to: Point, travelMode: TravelMode = "walking"): Promise<RouteResult> {
   if (!validPoint(from) || !validPoint(to)) throw new HttpError(400, "Choose valid starting and destination locations.");
   if (travelMode !== "walking" && travelMode !== "driving") throw new HttpError(400, "Choose walking or driving routes.");
@@ -23,13 +39,13 @@ export async function planRoutes(from: Point, to: Point, travelMode: TravelMode 
   }
   const key = process.env.ORS_API_KEY;
   if (!key) throw new HttpError(503, "Live routing needs the server's OpenRouteService key. Try the walking demo while setup is completed.", "ROUTING_NOT_CONFIGURED");
-  let raw: { features?: { geometry: Geometry; properties: { summary: { distance: number; duration: number } } }[] };
+  let raw: { features?: OrsFeature[] };
   try {
     const profile = travelMode === "driving" ? "driving-car" : "foot-walking";
     const response = await fetch(`https://api.openrouteservice.org/v2/directions/${profile}/geojson`, {
       method: "POST",
       headers: { Authorization: key, "Content-Type": "application/json" },
-      body: JSON.stringify({ coordinates: [[from.lng, from.lat], [to.lng, to.lat]], alternative_routes: { target_count: 3, weight_factor: 1.6, share_factor: 0.6 } }),
+      body: JSON.stringify({ coordinates: [[from.lng, from.lat], [to.lng, to.lat]], instructions: true, alternative_routes: { target_count: 3, weight_factor: 1.6, share_factor: 0.6 } }),
       signal: AbortSignal.timeout(20000),
     });
     if (response.status === 401 || response.status === 403) throw new HttpError(503, "The routing service rejected its server key. Please update the OpenRouteService key.");
@@ -61,7 +77,7 @@ export async function planRoutes(from: Point, to: Point, travelMode: TravelMode 
     const fastestFirst = usable
       .map(f => ({
         id: randomUUID(), geometry: f.geometry, distanceMeters: f.properties.summary.distance,
-        durationSeconds: f.properties.summary.duration, ...unavailableLighting(),
+        durationSeconds: f.properties.summary.duration, ...namedStreets(f), ...unavailableLighting(),
       }))
       .sort((a, b) => a.durationSeconds - b.durationSeconds);
     const unique = fastestFirst.filter((route, index) => !fastestFirst.slice(0, index).some(previous =>
@@ -79,7 +95,7 @@ export async function planRoutes(from: Point, to: Point, travelMode: TravelMode 
   const scored = usable.map(f => ({
     id: randomUUID(), geometry: f.geometry,
     distanceMeters: f.properties.summary.distance, durationSeconds: f.properties.summary.duration,
-    ...(area ? scoreLighting(f.geometry, area) : unavailableLighting()),
+    ...namedStreets(f), ...(area ? scoreLighting(f.geometry, area) : unavailableLighting()),
   }));
   const fastest = scored.reduce((a, b) => a.durationSeconds <= b.durationSeconds ? a : b);
   const hasLighting = scored.some(r => r.lightScore !== null);

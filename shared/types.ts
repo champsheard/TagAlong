@@ -11,6 +11,7 @@ export type RouteOption = {
   id: string; geometry: Geometry; distanceMeters: number; durationSeconds: number;
   lightScore: number | null; lightBreakdown: LightBreakdown;
   label: "Fastest" | "Best lit" | "Alternative";
+  streetNames?: string[];
 };
 export type RouteResult = { routes: RouteOption[]; notices: string[]; demo: boolean; travelMode: TravelMode };
 export type Position = Point & { accuracy: number | null; timestamp: number };

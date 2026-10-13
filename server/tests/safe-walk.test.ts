@@ -163,19 +163,24 @@ test("routes use real provider alternatives and do not silently fabricate withou
   delete process.env.ORS_API_KEY;
   assert.equal((await call("/routes", { from: { lat: 0, lng: 0 }, to: { lat: 0, lng: 0.001 } })).status, 503);
   process.env.ORS_API_KEY = "test-fixture-not-a-real-key";
-  let requestedAlternatives = false;
+  let requestedAlternatives = false, requestedInstructions = false;
   globalThis.fetch = (async (url: string | URL | Request, options?: RequestInit) => {
     if (String(url).includes("openrouteservice")) {
       const body = JSON.parse(options!.body as string);
       requestedAlternatives = body.alternative_routes.target_count === 3;
-      return Response.json({ features: [{ geometry, properties: { summary: { distance: 111, duration: 90 } } }] });
+      requestedInstructions = body.instructions === true;
+      return Response.json({ features: [{ geometry, properties: {
+        summary: { distance: 111, duration: 90 },
+        segments: [{ steps: [{ name: "Oak Street" }, { name: "-" }, { name: "Pine Avenue" }, { name: "Oak Street" }] }],
+      } }] });
     }
     if (String(url).includes("overpass")) return Response.json({ elements: [] });
     return realFetch(url, options);
   }) as typeof fetch;
   const r = await call("/routes", { from: { lat: 0, lng: 0 }, to: { lat: 0, lng: 0.001 } });
-  assert.equal(r.status, 200); assert.equal(requestedAlternatives, true);
+  assert.equal(r.status, 200); assert.equal(requestedAlternatives, true); assert.equal(requestedInstructions, true);
   assert.equal(r.data.demo, false); assert.equal(r.data.routes.length, 2);
+  assert.deepEqual(r.data.routes[0].streetNames, ["Oak Street", "Pine Avenue"]);
   assert.equal(r.data.travelMode, "walking");
   assert.equal(r.data.routes[0].durationSeconds, 90);
   assert.equal(r.data.routes[1].lightBreakdown.limitedData, true);

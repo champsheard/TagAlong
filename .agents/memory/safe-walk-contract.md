@@ -81,17 +81,20 @@ on a deliberate search, and keep the exact position out of caches and logs.
 
 Post-arrival feedback is optional and sent only after an explicit submit action.
 Keep it anonymous: do not store account identity, precise coordinates, or the
-private trip link. The user approved 90-day retention and wants the form to
-disclose that entered street names can reveal where someone walked. Ask for a
-1–5 route rating first, then optional user-entered street/block lighting ratings
-and notes. “Plan another walk” must remain available without sending feedback.
+private trip link. The user approved 90-day retention but asked to remove
+retention messages from the feedback UI. Populate optional lighting reports from
+named streets in the selected route instead of requiring manual street entry,
+and warn that street names can reveal where someone walked. Ask for a 1–5 route
+rating first. “Plan another walk” must remain available without sending feedback.
 
 **Why:** The user chose anonymous feedback to Safe Walk with bounded retention,
-and street-level reports can reveal sensitive location context.
+wants less manual entry, and street-level reports can reveal sensitive location
+context.
 
 **How to apply:** Validate and rate-limit feedback server-side. Use entered street
-or block descriptions because the route API does not provide street names.
-Automatically delete reports after 90 days and never log sensitive fields.
+names supplied by route instructions; do not send or persist precise coordinates.
+Keep the 90-day automatic deletion policy without mentioning it in the feedback
+UI, and never log sensitive fields.
 
 Collect arrival feedback only after a real walk is confirmed arrived; omit demos,
 help-status trips, and expirations.

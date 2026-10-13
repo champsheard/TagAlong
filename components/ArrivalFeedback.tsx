@@ -30,21 +30,28 @@ function RatingChoices({ value, onChange, label }: {
   </View>;
 }
 
-export default function ArrivalFeedback() {
+export default function ArrivalFeedback({ streetNames = [] }: { streetNames?: string[] }) {
   const [routeRating, setRouteRating] = useState<number | null>(null);
   const [reports, setReports] = useState<ReportDraft[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
+  const availableStreetNames = [...new Set(streetNames.map(name => name.trim()).filter(Boolean))];
 
   const hasDetails = (report: ReportDraft) =>
-    !!report.streetOrBlock.trim() || report.lightingRating !== null || !!report.notes.trim();
+    report.lightingRating !== null || !!report.notes.trim();
   const incompleteReport = reports.some(report =>
     hasDetails(report) && (!report.streetOrBlock.trim() || report.lightingRating === null),
   );
 
   function updateReport(index: number, update: Partial<ReportDraft>) {
     setReports(current => current.map((report, i) => i === index ? { ...report, ...update } : report));
+  }
+
+  function addReport(streetOrBlock: string) {
+    setReports(current => current.length >= 3 || current.some(report => report.streetOrBlock === streetOrBlock)
+      ? current
+      : [...current, { streetOrBlock, lightingRating: null, notes: "" }]);
   }
 
   async function sendFeedback() {
@@ -81,32 +88,37 @@ export default function ArrivalFeedback() {
     {routeRating !== null && !submitted ? <>
       <View style={s.optionalSection}>
         <Text style={s.sectionTitle}>Lighting notes <Text style={s.optionalLabel}>· OPTIONAL</Text></Text>
-        <Text style={s.body}>Add up to three streets or blocks if you’d like to report lighting conditions.</Text>
+        <Text style={s.body}>Choose up to three street names from your route if you’d like to report lighting conditions.</Text>
         <View style={s.privacyNote}>
-          <Text style={s.privacyText}>Feedback isn’t linked to your trip, an account, or GPS coordinates, and is deleted after 90 days. Street or block names can reveal where you walked; don’t include your name or exact address.</Text>
+          <Text style={s.privacyText}>Feedback isn’t linked to your trip, an account, or GPS coordinates. Street names can reveal where you walked; don’t include your name or exact address.</Text>
         </View>
+        {availableStreetNames.length ? <View style={s.streetChoices}>
+          {availableStreetNames.filter(name => !reports.some(report => report.streetOrBlock === name)).map(name => <Pressable
+            key={name}
+            accessibilityRole="button"
+            accessibilityLabel={`Add ${name} to lighting feedback`}
+            accessibilityState={{ disabled: reports.length >= 3 }}
+            disabled={reports.length >= 3}
+            onPress={() => addReport(name)}
+            style={({ pressed }) => [s.streetChoice, reports.length >= 3 && s.streetChoiceDisabled, pressed && reports.length < 3 && { opacity: 0.75 }]}
+          >
+            <Text style={s.streetChoiceText}>{name}</Text>
+          </Pressable>)}
+          {reports.length >= 3 ? <Text style={s.body}>Remove a selected street to choose another.</Text> : null}
+        </View> : <Text style={s.body}>Street names aren’t available for this route. You can still send your route rating.</Text>}
 
         {reports.map((report, index) => <View key={index} style={s.reportCard}>
           <View style={s.reportHeading}>
-            <Text style={s.reportTitle}>Street or block {index + 1}</Text>
+            <Text numberOfLines={2} style={s.reportTitle}>{report.streetOrBlock}</Text>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`Remove street or block report ${index + 1}`}
+              accessibilityLabel={`Remove ${report.streetOrBlock} lighting report`}
               onPress={() => setReports(current => current.filter((_, i) => i !== index))}
               style={s.removeButton}
             >
               <Text style={s.removeText}>Remove</Text>
             </Pressable>
           </View>
-          <TextInput
-            accessibilityLabel={`Street or block ${index + 1}`}
-            value={report.streetOrBlock}
-            onChangeText={streetOrBlock => updateReport(index, { streetOrBlock })}
-            placeholder="Street name or block"
-            placeholderTextColor={palette.muted}
-            maxLength={120}
-            style={s.input}
-          />
           <Text style={s.reportLabel}>Lighting: 1 is very poor, 5 is well lit</Text>
           <RatingChoices
             value={report.lightingRating}
@@ -126,13 +138,6 @@ export default function ArrivalFeedback() {
           />
         </View>)}
 
-        {reports.length < 3 ? <Pressable
-          accessibilityRole="button"
-          onPress={() => setReports(current => [...current, { streetOrBlock: "", lightingRating: null, notes: "" }])}
-          style={s.addReport}
-        >
-          <Text style={s.addReportText}>+ Add a street or block</Text>
-        </Pressable> : null}
       </View>
       {error ? <View style={s.error}><Notice tone="danger">{error}</Notice></View> : null}
       <ActionButton
@@ -145,7 +150,7 @@ export default function ArrivalFeedback() {
     </> : null}
 
     {routeRating === null ? <Text style={s.hint}>Your feedback is optional. You can plan another walk without sending it.</Text> : null}
-    {submitted ? <View style={s.thanks}><Notice>Thank you. Your anonymous feedback will be deleted after 90 days.</Notice></View> : null}
+    {submitted ? <View style={s.thanks}><Notice>Thank you. Your anonymous feedback was sent.</Notice></View> : null}
     {error && (routeRating === null || submitted) ? <View style={s.error}><Notice tone="danger">{error}</Notice></View> : null}
   </View>;
 }
@@ -172,8 +177,10 @@ const s = StyleSheet.create({
   input: { minHeight: 45, borderRadius: 10, borderWidth: 1, borderColor: "#AEB8A7", backgroundColor: palette.paper, paddingHorizontal: 11, color: palette.ink, fontSize: 14 },
   reportLabel: { color: palette.evergreen, fontSize: 12, lineHeight: 17, fontWeight: "800", marginTop: 10 },
   notesInput: { minHeight: 72, paddingTop: 10, marginTop: 10 },
-  addReport: { minHeight: 42, alignItems: "center", justifyContent: "center", marginTop: 9, borderRadius: 11, borderWidth: 1, borderStyle: "dashed", borderColor: palette.citronDark },
-  addReportText: { color: palette.evergreen, fontSize: 13, fontWeight: "800" },
+  streetChoices: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 11 },
+  streetChoice: { minHeight: 36, maxWidth: "100%", justifyContent: "center", paddingHorizontal: 11, borderRadius: 18, borderWidth: 1, borderColor: palette.citronDark, backgroundColor: palette.paper },
+  streetChoiceDisabled: { opacity: 0.45 },
+  streetChoiceText: { color: palette.evergreen, fontSize: 12, fontWeight: "800" },
   hint: { color: palette.muted, fontSize: 12, lineHeight: 17, marginTop: 10 },
   error: { marginTop: 11 },
   thanks: { marginTop: 13 },

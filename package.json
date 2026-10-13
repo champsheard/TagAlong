@@ -11,6 +11,7 @@
     "export:web": "expo export --platform web",
     "typecheck": "tsc --noEmit && tsc --noEmit -p server/tsconfig.json",
     "test": "tsx --test server/tests/*.test.ts",
+    "notifications:test": "tsx server/scripts/send-test-notifications.ts",
     "build": "npm run export:web",
     "start": "npm run start:server"
   },
