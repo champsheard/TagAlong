@@ -1,10 +1,11 @@
-import { Fragment, useEffect, useRef } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Linking, Platform, Pressable, Text, View } from "react-native";
 import NativeMap, { UrlTile, Marker, Polyline } from "react-native-maps";
 import type { MapViewProps } from "./MapView.types";
 
 export default function MapView({ center, routes, markers, livePosition, livePositionLabel, fitPadding, attributionBottom }: MapViewProps) {
   const ref = useRef<NativeMap>(null);
+  const [mapHeight, setMapHeight] = useState(0);
   useEffect(() => {
     const points = routes?.flatMap(r => r.geometry.coordinates.map(([longitude, latitude]) => ({ latitude, longitude })));
     if (points?.length) setTimeout(() => ref.current?.fitToCoordinates(points, {
@@ -12,11 +13,19 @@ export default function MapView({ center, routes, markers, livePosition, livePos
     }), 200);
   }, [routes, fitPadding?.top, fitPadding?.bottom, fitPadding?.left, fitPadding?.right]);
   useEffect(() => {
-    if (!routes?.length) ref.current?.animateToRegion({
-      latitude: center.lat, longitude: center.lng, latitudeDelta: 0.012, longitudeDelta: 0.012,
-    }, 250);
-  }, [center.lat, center.lng, routes?.length]);
-  return <View style={{ flex: 1 }}><NativeMap ref={ref} style={{ flex: 1 }} mapType={Platform.OS === "android" ? "none" : "standard"} accessibilityLabel={Platform.OS === "ios" ? "Apple Maps walking route map" : "OpenStreetMap walking route map"} initialRegion={{ latitude: center.lat, longitude: center.lng, latitudeDelta: 0.012, longitudeDelta: 0.012 }} onMapReady={() => {
+    if (!routes?.length && mapHeight > 0) {
+      const visibleCenterOffset = ((fitPadding?.top ?? 0) - (fitPadding?.bottom ?? 0)) / 2;
+      const boundedOffset = Math.max(-mapHeight / 2, Math.min(visibleCenterOffset, mapHeight / 2));
+      const latitudeDelta = 0.012;
+      ref.current?.animateToRegion({
+        latitude: center.lat + boundedOffset / mapHeight * latitudeDelta,
+        longitude: center.lng,
+        latitudeDelta,
+        longitudeDelta: 0.012,
+      }, 250);
+    }
+  }, [center.lat, center.lng, routes?.length, mapHeight, fitPadding?.top, fitPadding?.bottom]);
+  return <View style={{ flex: 1 }} onLayout={event => setMapHeight(event.nativeEvent.layout.height)}><NativeMap ref={ref} style={{ flex: 1 }} mapType={Platform.OS === "android" ? "none" : "standard"} accessibilityLabel={Platform.OS === "ios" ? "Apple Maps walking route map" : "OpenStreetMap walking route map"} initialRegion={{ latitude: center.lat, longitude: center.lng, latitudeDelta: 0.012, longitudeDelta: 0.012 }} onMapReady={() => {
     const points = routes?.flatMap(r => r.geometry.coordinates.map(([longitude, latitude]) => ({ latitude, longitude })));
     if (points?.length) ref.current?.fitToCoordinates(points, { edgePadding: fitPadding ?? { top: 35, bottom: 35, left: 35, right: 35 }, animated: false });
   }}>

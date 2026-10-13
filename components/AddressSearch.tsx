@@ -38,11 +38,13 @@ export default function AddressSearch({ label, placeholder, value, onSelect, onC
   }
   return <View style={styles.wrap}>
     <Text style={styles.label}>{label}{required ? " · REQUIRED" : " · OPTIONAL"}</Text>
-    <TextInput
-      value={query} onChangeText={change} placeholder={placeholder} placeholderTextColor="#718076"
-      style={styles.input} accessibilityLabel={label} autoCorrect={false} returnKeyType="search" onSubmitEditing={search} maxLength={160}
-    />
-    <Pressable accessibilityRole="button" accessibilityLabel={`Search ${label}`} onPress={search} disabled={loading || query.trim().length < 3} style={[styles.search, (loading || query.trim().length < 3) && { opacity: 0.5 }]}><Text style={styles.searchText}>Search</Text></Pressable>
+    <View style={styles.searchRow}>
+      <TextInput
+        value={query} onChangeText={change} placeholder={placeholder} placeholderTextColor="#718076"
+        style={styles.input} accessibilityLabel={label} autoCorrect={false} returnKeyType="search" onSubmitEditing={search} maxLength={160}
+      />
+      <Pressable accessibilityRole="button" accessibilityLabel={`Search ${label}`} onPress={search} disabled={loading || query.trim().length < 3} style={[styles.search, (loading || query.trim().length < 3) && { opacity: 0.5 }]}><Text style={styles.searchText}>Search</Text></Pressable>
+    </View>
     {loading ? <View style={styles.state}><ActivityIndicator color={palette.evergreen} /><Text style={styles.stateText}>Searching addresses…</Text></View> : null}
     {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
     {searched && !loading && !error && !results.length && query !== value?.label ? <Text style={styles.stateText}>No matches. Try a street, place, or nearby landmark.</Text> : null}
@@ -58,8 +60,9 @@ export default function AddressSearch({ label, placeholder, value, onSelect, onC
 const styles = StyleSheet.create({
   wrap: { marginBottom: 16 },
   label: { color: palette.evergreen, fontSize: 13, fontWeight: "900", letterSpacing: 0.65, marginBottom: 8 },
-  input: { minHeight: 54, borderRadius: 13, borderWidth: 1.5, borderColor: "#AEB8A7", backgroundColor: palette.paper, paddingHorizontal: 15, color: palette.ink, fontSize: 16 },
-  search: { alignSelf: "flex-end", minHeight: 44, justifyContent: "center", paddingHorizontal: 18, marginTop: 8, backgroundColor: palette.evergreen, borderRadius: 10 },
+  searchRow: { flexDirection: "row", alignItems: "stretch", gap: 8 },
+  input: { flex: 1, minWidth: 0, minHeight: 54, borderRadius: 13, borderWidth: 1.5, borderColor: "#AEB8A7", backgroundColor: palette.paper, paddingHorizontal: 15, color: palette.ink, fontSize: 16 },
+  search: { minHeight: 54, justifyContent: "center", paddingHorizontal: 16, backgroundColor: palette.evergreen, borderRadius: 13 },
   searchText: { color: palette.paper, fontSize: 15, fontWeight: "800" },
   state: { flexDirection: "row", alignItems: "center", gap: 9, paddingVertical: 12 },
   stateText: { color: palette.muted, fontSize: 14, lineHeight: 21, paddingVertical: 9 },

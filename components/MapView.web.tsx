@@ -17,8 +17,13 @@ function Fit({ center, routes, fitPadding }: MapViewProps) {
     return () => clearTimeout(timer);
   }, [routes, map, fitPadding?.top, fitPadding?.right, fitPadding?.bottom, fitPadding?.left]);
   useEffect(() => {
-    if (!routes?.length) map.setView([center.lat, center.lng], 15);
-  }, [center.lat, center.lng, routes?.length, map]);
+    if (!routes?.length) {
+      const visibleCenterOffset = ((fitPadding?.top ?? 0) - (fitPadding?.bottom ?? 0)) / 2;
+      const targetPixel = map.project([center.lat, center.lng], 15);
+      const adjustedCenter = map.unproject([targetPixel.x, targetPixel.y - visibleCenterOffset], 15);
+      map.setView(adjustedCenter, 15);
+    }
+  }, [center.lat, center.lng, routes?.length, map, fitPadding?.top, fitPadding?.bottom]);
   return null;
 }
 export default function MapView(props: MapViewProps) {

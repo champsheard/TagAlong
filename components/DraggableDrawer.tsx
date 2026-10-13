@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
-  Animated, Keyboard, KeyboardAvoidingView, Platform, Pressable,
+  Animated, KeyboardAvoidingView, Platform, Pressable,
   StyleProp, StyleSheet, View, ViewStyle, useWindowDimensions,
 } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -26,8 +26,6 @@ export default function DraggableDrawer({ children, style, initialHeight, minHei
   const heightRef = useRef(initial);
   const gestureStart = useRef(initial);
   const dragged = useRef(false);
-  const keyboardSavedHeight = useRef(initial);
-  const keyboardOpen = useRef(false);
   const minRef = useRef(allowedMin);
   const maxRef = useRef(allowedMax);
   const initialRef = useRef(initial);
@@ -57,25 +55,6 @@ export default function DraggableDrawer({ children, style, initialHeight, minHei
   useEffect(() => {
     moveTo(initialHeight);
   }, [resetKey]);
-
-  useEffect(() => {
-    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const show = Keyboard.addListener(showEvent, event => {
-      if (!keyboardOpen.current) keyboardSavedHeight.current = heightRef.current;
-      keyboardOpen.current = true;
-      const keyboardLimit = Platform.OS === "ios"
-        ? maxRef.current - event.endCoordinates.height
-        : maxRef.current;
-      moveTo(Math.min(heightRef.current, keyboardLimit), true);
-    });
-    const hide = Keyboard.addListener(hideEvent, () => {
-      if (!keyboardOpen.current) return;
-      keyboardOpen.current = false;
-      moveTo(keyboardSavedHeight.current, true);
-    });
-    return () => { show.remove(); hide.remove(); };
-  }, []);
 
   const panGesture = useMemo(() => Gesture.Pan()
     .activeOffsetY([-6, 6])
@@ -108,7 +87,7 @@ export default function DraggableDrawer({ children, style, initialHeight, minHei
   return (
     <KeyboardAvoidingView
       style={[StyleSheet.absoluteFill, { pointerEvents: "box-none" }]}
-      behavior={Platform.OS === "ios" ? "padding" : Platform.OS === "android" ? "height" : undefined}
+      behavior={Platform.OS === "android" ? "height" : undefined}
     >
       <View style={styles.dock}>
         <Animated.View style={[styles.sheet, style, { height: heightValue, maxHeight: allowedMax }]}>

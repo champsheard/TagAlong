@@ -72,3 +72,14 @@ warning.
 
 **How to apply:** Check for a ready Metro bundle and tunnel before treating this
 specific DevTools warning as fatal or adding more system libraries.
+
+Avoid stacking keyboard avoidance on the walk drawer. Use the ScrollView's
+automatic keyboard insets on iOS and the drawer's KeyboardAvoidingView height
+behavior on Android; do not also resize the drawer from keyboard events.
+
+**Why:** The drawer, KeyboardAvoidingView, and ScrollView were all adjusting for
+the same keyboard, creating excess spacing and making focused search fields hard
+to keep visible.
+
+**How to apply:** Keep one keyboard-adjustment path per platform and test focused
+address fields on a device after changing drawer or keyboard behavior.
