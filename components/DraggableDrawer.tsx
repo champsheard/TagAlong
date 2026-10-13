@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
-  Animated, KeyboardAvoidingView, Platform, Pressable,
+  Animated, Keyboard, KeyboardAvoidingView, Platform, Pressable,
   StyleProp, StyleSheet, View, ViewStyle, useWindowDimensions,
 } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -55,6 +55,15 @@ export default function DraggableDrawer({ children, style, initialHeight, minHei
   useEffect(() => {
     moveTo(initialHeight);
   }, [resetKey]);
+
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const show = Keyboard.addListener(showEvent, () => {
+      requestAnimationFrame(() => moveToRef.current(maxRef.current));
+    });
+    return () => show.remove();
+  }, []);
 
   const panGesture = useMemo(() => Gesture.Pan()
     .activeOffsetY([-6, 6])

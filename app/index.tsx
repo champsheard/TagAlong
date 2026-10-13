@@ -122,7 +122,7 @@ export default function Index() {
       style={[s.panel, { paddingBottom: Math.max(insets.bottom, 14) }]}
       initialHeight={panelHeight}
       minHeight={Math.min(230, height * 0.32)}
-      maxHeight={Math.max(180, height - insets.top - 68)}
+      maxHeight={Math.max(180, height - insets.top - 12)}
       resetKey={walk.phase}
       onHeightSettled={setActualPanelHeight}
     >

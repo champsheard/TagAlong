@@ -8,7 +8,6 @@ import { startPushActivityListener } from "./trackingWidget";
 export const nativeBuild = Constants.executionEnvironment !== "storeClient";
 export async function enableDeviceNotifications() {
   if (!nativeBuild) throw new Error("App notifications need a native development or store build, not Expo Go.");
-  if (!Device.isDevice) throw new Error("Use a physical phone to enable app notifications.");
   const projectId = process.env.EXPO_PUBLIC_EAS_PROJECT_ID ?? Constants.easConfig?.projectId;
   if (!projectId) throw new Error("The native build needs its EAS project ID before push notifications can be enabled.");
   if (Device.osName === "Android") await Notifications.setNotificationChannelAsync("walks", { name: "Safe Walk trips", importance: Notifications.AndroidImportance.HIGH });
