@@ -259,6 +259,7 @@ export default function Index() {
               <View style={[s.switchTrack, walk.demo && s.switchOn]}><View style={[s.switchThumb, walk.demo && s.thumbOn]} /></View>
             </Pressable> : null}
              {walk.demo && !walk.result.demo ? <View style={{ marginTop: 10 }}><Notice tone="warning">Simulated movement follows this route for 90 seconds. It does not share a real location.</Notice></View> : null}
+             {walk.travelMode === "driving" && !walk.demo ? <View style={{ marginTop: 10 }}><Notice tone="warning">Remote-stop check: if live location stays within 35 m for 60 seconds and no mapped building or place is within 250 m, you’ll have 15 seconds to cancel before Safe Walk warns app contacts receiving this drive. Map data, GPS, and connection can limit detection. It does not contact emergency services.</Notice></View> : null}
             {walk.error ? <View style={{ marginTop: 10 }}><Notice tone="danger">{walk.error}</Notice></View> : null}
             <View style={s.buttonRow}>
                <ActionButton title={walk.travelMode === "driving" ? "Start drive" : "Start walk"} onPress={() => setShowStartConfirm(true)} disabled={!route} style={{ flex: 1 }} />
@@ -270,6 +271,15 @@ export default function Index() {
             <View style={s.phaseTop}><View style={{ flex: 1 }}><Eyebrow>{`YOUR ${walk.travelMode === "driving" ? "DRIVE" : "WALK"} IS LIVE`}</Eyebrow><Text style={s.panelTitle}>You’re on your way.</Text></View><View style={s.livePill}><View style={s.liveDot} /><Text style={s.liveText}>{walk.sendError || (!walk.foreground && !walk.backgroundEnabled) ? "PAUSED" : "SHARING ON"}</Text></View></View>
             <View style={s.walkStats}><View><Text style={s.statLarge}>{Math.max(0, Math.ceil((walk.trip.etaAt - walk.now) / 60000))}</Text><Text style={s.metricLabel}>MIN TO ARRIVE</Text></View><View style={s.metricDivider} /><View style={{ flex: 1 }}><Text numberOfLines={1} style={s.statRoute}>{walk.trip.route.label}</Text><Text style={s.metricLabel}>CHOSEN ROUTE</Text></View></View>
             {walk.demo ? <View style={{ marginTop: 12 }}><Notice tone="warning">Demo {walk.travelMode === "driving" ? "drive" : "walk"} · Location movement is simulated. Keep this screen open.</Notice></View> : null}
+             {walk.travelMode === "driving" && walk.remoteStopAlertDueAt !== null ? <View style={{ marginTop: 12 }}>
+               <Notice tone="warning">No mapped buildings or places were found nearby after this stop. Safe Walk will warn app contacts receiving this drive in {Math.max(0, Math.ceil((walk.remoteStopAlertDueAt - walk.now) / 1000))} seconds.</Notice>
+               <ActionButton title="Cancel remote-stop warning" secondary onPress={() => { void walk.cancelRemoteStopAlert(); }} style={{ marginTop: 8 }} />
+             </View> : null}
+             {walk.travelMode === "driving" && walk.remoteStopAlertAt !== null ? <View style={{ marginTop: 12 }}>
+               <Notice tone="warning">{walk.remoteStopAlertClearedAt
+                 ? `A remote-stop warning was triggered at ${new Date(walk.remoteStopAlertAt).toLocaleTimeString()}; movement resumed at ${new Date(walk.remoteStopAlertClearedAt).toLocaleTimeString()}.`
+                 : `A remote-stop warning was triggered at ${new Date(walk.remoteStopAlertAt).toLocaleTimeString()}. Push delivery is not guaranteed.`}</Notice>
+             </View> : null}
             {walk.error ? <View style={{ marginTop: 12 }}><Notice tone="danger">{walk.error}</Notice></View> : null}
             {!!walk.sendError ? <View style={{ marginTop: 12 }}><Notice tone="warning">Connection issue · {walk.sendError} Your contact may see an older location.</Notice></View> : null}
             {!!walk.backgroundNotice ? <View style={{ marginTop: 12 }}><Notice tone="warning">{walk.backgroundNotice}</Notice></View> : null}

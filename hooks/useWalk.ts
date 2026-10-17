@@ -40,6 +40,9 @@ export function useWalk() {
   const [demo, setDemo] = useState(false);
   const [result, setResult] = useState<RouteResult | null>(null), [selectedId, setSelectedId] = useState("");
   const [trip, setTrip] = useState<ActiveTrip | null>(null);
+  const [remoteStopAlertDueAt, setRemoteStopAlertDueAt] = useState<number | null>(null);
+  const [remoteStopAlertAt, setRemoteStopAlertAt] = useState<number | null>(null);
+  const [remoteStopAlertClearedAt, setRemoteStopAlertClearedAt] = useState<number | null>(null);
   const [position, setPosition] = useState<Position | null>(null);
   const [mapLocation, setMapLocation] = useState<Position | null>(null);
   const [busy, setBusy] = useState(false), [restoring, setRestoring] = useState(true);
@@ -198,8 +201,13 @@ export function useWalk() {
         }
         const p = latest.current;
         if (!p || !alive || stopping.current) return;
-        await api.location(trip, p);
-        if (alive) setSendError("");
+        const response = await api.location(trip, p);
+        if (alive) {
+          setRemoteStopAlertDueAt(response.remoteStopAlertDueAt);
+          setRemoteStopAlertAt(response.remoteStopAlertAt);
+          setRemoteStopAlertClearedAt(response.remoteStopAlertClearedAt);
+          setSendError("");
+        }
       } catch (e) {
         if (e instanceof ApiError && (e.status === 404 || e.status === 409)) {
           stopping.current = true; setPhase("finished"); setFinishedStatus("expired");
@@ -291,7 +299,12 @@ export function useWalk() {
             ? `Background location isn't available in this app build. This ${tripNoun(travelMode)} updates only while Safe Walk is open.`
             : `Background location couldn't start. This ${tripNoun(travelMode)} updates only while Safe Walk is open.`);
       }
-      try { await api.location(next, p); } catch (e) { setSendError(message(e)); }
+      try {
+        const response = await api.location(next, p);
+        setRemoteStopAlertDueAt(response.remoteStopAlertDueAt);
+        setRemoteStopAlertAt(response.remoteStopAlertAt);
+        setRemoteStopAlertClearedAt(response.remoteStopAlertClearedAt);
+      } catch (e) { setSendError(message(e)); }
       // Contact matching can take several requests; it must not block ending the walk.
       const showAutoShareNotice = (text: string) => {
         if (autoShareAttempt.current === shareAttempt && !stopping.current) setNotice(text);
@@ -333,6 +346,7 @@ export function useWalk() {
   }
   async function endTrip(status: "arrived" | "help") {
     if (!trip) return;
+    setRemoteStopAlertDueAt(null);
     autoShareAttempt.current += 1;
     stopping.current = true;
     setFinishedStatus(status); setPhase("finished");
@@ -341,6 +355,14 @@ export function useWalk() {
     await stopBackgroundLocationUpdates();
     setBackgroundEnabled(false);
     setTrip(next);
+  }
+  async function cancelRemoteStopAlert() {
+    if (!trip || remoteStopAlertDueAt === null) return;
+    try {
+      await api.cancelDriveStopAlert(trip);
+      setRemoteStopAlertDueAt(null);
+      setNotice("Remote-stop warning canceled.");
+    } catch (e) { setSendError(message(e)); }
   }
   async function shareTrip() {
     if (!trip) return;
@@ -352,6 +374,7 @@ export function useWalk() {
     void stopBackgroundLocationUpdates();
     setBackgroundEnabled(false); setBackgroundNotice("");
     stopping.current = false; setTrip(null); setResult(null); setPhase("plan"); setError(""); setNotice(""); setSendError(""); setDemo(false);
+    setRemoteStopAlertDueAt(null); setRemoteStopAlertAt(null); setRemoteStopAlertClearedAt(null);
   }
   function setTravelMode(next: TravelMode) {
     if (next === travelMode) return;
@@ -361,7 +384,8 @@ export function useWalk() {
     phase, from, to, setFrom, setTo, travelMode, setTravelMode, demo, setDemo, result, selectedRoute, foreground, backgroundEnabled, backgroundNotice,
     mapLocation,
     selectRoute: setSelectedId, trip, position, busy, restoring, error, notice, sendError, now, routingAvailable, finishedStatus,
-    locateStart, loadDemo, planRoutes, startTrip, endTrip, shareTrip, reset,
+    remoteStopAlertDueAt, remoteStopAlertAt, remoteStopAlertClearedAt,
+    locateStart, loadDemo, planRoutes, startTrip, endTrip, cancelRemoteStopAlert, shareTrip, reset,
     editPlan: () => { setPhase("plan"); setResult(null); setError(""); },
     clearError: () => setError(""),
   };

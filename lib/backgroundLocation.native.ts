@@ -1,11 +1,52 @@
 import { AppState, Platform } from "react-native";
 import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
+import * as Notifications from "expo-notifications";
+import * as SecureStore from "expo-secure-store";
 import { ApiError, api } from "./api";
 import { readTrip } from "./tripStorage";
 import type { Position } from "../shared/types";
 
 const taskName = "safe-walk-background-location";
+const stopAlertCategory = "safe-walk-remote-stop";
+type RemoteStopNotificationState = { dueAt?: number; notificationId?: string };
+
+async function syncRemoteStopNotification(trip: Awaited<ReturnType<typeof readTrip>>, dueAt: number | null) {
+  if (!trip || trip.travelMode !== "driving") return;
+  const key = `remote-stop-notification:${trip.tripId}`;
+  let previous: RemoteStopNotificationState | null = null;
+  try {
+    const saved = await SecureStore.getItemAsync(key);
+    if (saved) previous = JSON.parse(saved) as RemoteStopNotificationState;
+  } catch {}
+
+  if (dueAt === null) {
+    if (previous?.notificationId) {
+      try { await Notifications.dismissNotificationAsync(previous.notificationId); } catch {}
+    }
+    try { await SecureStore.deleteItemAsync(key); } catch {}
+    return;
+  }
+  if (previous?.dueAt === dueAt) return;
+  if (previous?.notificationId) {
+    try { await Notifications.dismissNotificationAsync(previous.notificationId); } catch {}
+  }
+  try {
+    const notificationId = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: "Safe Walk remote-stop warning",
+        body: "If app contacts are receiving this drive, they’ll be warned soon. Tap “Cancel warning” if this stop is expected.",
+        categoryIdentifier: stopAlertCategory,
+        sound: "default",
+        data: { kind: "safe-walk-remote-stop-cancel", tripId: trip.tripId },
+      },
+      trigger: null,
+    });
+    await SecureStore.setItemAsync(key, JSON.stringify({ dueAt, notificationId }));
+  } catch {
+    // A local notification failure must not interrupt background location updates.
+  }
+}
 
 TaskManager.defineTask(taskName, async ({ data, error }) => {
   if (error) return;
@@ -26,7 +67,8 @@ TaskManager.defineTask(taskName, async ({ data, error }) => {
       accuracy: location.coords.accuracy,
       timestamp: location.timestamp,
     };
-    await api.location(trip, position);
+    const response = await api.location(trip, position);
+    await syncRemoteStopNotification(trip, response.remoteStopAlertDueAt);
   } catch (cause) {
     if (cause instanceof ApiError && (cause.status === 404 || cause.status === 409)) {
       await stopBackgroundLocationUpdates();
@@ -73,6 +115,10 @@ export async function startBackgroundLocationUpdates(): Promise<boolean> {
 }
 
 export async function stopBackgroundLocationUpdates(): Promise<void> {
+  try {
+    const trip = await readTrip();
+    if (trip) await syncRemoteStopNotification(trip, null);
+  } catch {}
   try {
     if (await Location.hasStartedLocationUpdatesAsync(taskName)) {
       await Location.stopLocationUpdatesAsync(taskName);

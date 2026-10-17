@@ -30,7 +30,15 @@ database.exec(`
     expires_at INTEGER NOT NULL,
     last_location TEXT,
     last_update_at INTEGER,
-    demo INTEGER NOT NULL DEFAULT 0
+    demo INTEGER NOT NULL DEFAULT 0,
+    stop_started_at INTEGER,
+    stop_anchor_lat REAL,
+    stop_anchor_lng REAL,
+    stop_place_checked_at INTEGER,
+    stop_has_mapped_place INTEGER,
+    remote_stop_alert_due_at INTEGER,
+    remote_stop_alert_at INTEGER,
+    remote_stop_alert_cleared_at INTEGER
   );
   CREATE INDEX IF NOT EXISTS trips_expiry ON trips(expires_at);
   CREATE TABLE IF NOT EXISTS installations (
@@ -93,6 +101,17 @@ export function migrateTripTravelMode(db: Database.Database) {
   }
 }
 migrateTripTravelMode(database);
+
+const stopMonitorColumns: [string, string][] = [
+  ["stop_started_at", "INTEGER"], ["stop_anchor_lat", "REAL"], ["stop_anchor_lng", "REAL"],
+  ["stop_place_checked_at", "INTEGER"], ["stop_has_mapped_place", "INTEGER"],
+  ["remote_stop_alert_due_at", "INTEGER"], ["remote_stop_alert_at", "INTEGER"],
+  ["remote_stop_alert_cleared_at", "INTEGER"],
+];
+const currentTripColumns = new Set((database.pragma("table_info(trips)") as { name: string }[]).map(column => column.name));
+for (const [name, type] of stopMonitorColumns) {
+  if (!currentTripColumns.has(name)) database.exec(`ALTER TABLE trips ADD COLUMN ${name} ${type}`);
+}
 
 export function cached<T>(key: string): T | null {
   const row = database.prepare("SELECT value FROM cache WHERE key = ? AND expires_at > ?")

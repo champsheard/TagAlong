@@ -36,7 +36,9 @@ export const api = {
   createTrip: (routeGeometry: Geometry, etaSeconds: number, demo: boolean, travelMode: TravelMode) =>
     request<Omit<TripCredentials, "demo">>("/trips", "POST", { routeGeometry, etaSeconds, demo, travelMode }),
   location: (trip: TripCredentials, position: Position) =>
-    request<{ ok: boolean }>(`/trips/${trip.tripId}/location`, "POST", position, trip.writeToken),
+    request<{ ok: boolean; remoteStopAlertDueAt: number | null; remoteStopAlertAt: number | null; remoteStopAlertClearedAt: number | null }>(`/trips/${trip.tripId}/location`, "POST", position, trip.writeToken),
+  cancelDriveStopAlert: (trip: TripCredentials) =>
+    request<{ ok: boolean }>(`/trips/${trip.tripId}/remote-stop/cancel`, "POST", {}, trip.writeToken),
   end: (trip: TripCredentials, status: "arrived" | "help") =>
     request<{ ok: boolean }>(`/trips/${trip.tripId}/end`, "POST", { status }, trip.writeToken),
   feedback: (body: ArrivalFeedbackPayload) =>

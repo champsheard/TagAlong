@@ -104,6 +104,11 @@ export default function TrackTrip() {
               waitingTooLong ? <Notice tone="warning">No location update for {elapsed(tracking.now - (data.lastUpdateAt ?? data.startedAt))}. This may be an older location; try contacting your {personKind} directly.</Notice> :
                 !data.lastLocation ? <Notice>Waiting for the first location update. Keep this page open; it refreshes automatically.</Notice> :
                   <Notice>Trip active · location updates depend on the device's connection and location permissions.</Notice>}
+          {data.remoteStopAlertAt ? <View style={{ marginTop: 10 }}>
+            <Notice tone="warning">{data.remoteStopAlertClearedAt
+              ? `A remote-stop warning was triggered at ${new Date(data.remoteStopAlertAt).toLocaleTimeString()}. Movement resumed at ${new Date(data.remoteStopAlertClearedAt).toLocaleTimeString()}.`
+              : `A remote-stop warning was triggered at ${new Date(data.remoteStopAlertAt).toLocaleTimeString()}. Contact your driver directly to check on them.`}</Notice>
+          </View> : null}
           {tracking.error && data.status === "active" ? <View style={{ marginTop: 10 }}><Notice tone="warning">Couldn’t refresh just now. Showing the last location received. {tracking.error}</Notice></View> : null}
           <View style={s.titleBlock}><Eyebrow>LIVE TRIP STATUS</Eyebrow><Text style={s.title}>{statusTitle}</Text>
             {data.status === "active" ? <Text style={s.subtitle}>Estimated arrival in about {minutes(data.etaAt, tracking.now)} minutes.</Text> :

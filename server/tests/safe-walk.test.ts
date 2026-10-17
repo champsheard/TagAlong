@@ -9,12 +9,14 @@ process.env.DATABASE_PATH = ":memory:";
 let origin: string, server: Server;
 let db: typeof import("../src/db");
 let lighting: typeof import("../src/lighting");
+let driveStops: typeof import("../src/driveStopMonitor");
 const realFetch = globalThis.fetch;
 const geometry: Geometry = { type: "LineString", coordinates: [[0, 0], [0.001, 0]] };
 before(async () => {
   const { app } = await import("../src/app");
   db = await import("../src/db");
   lighting = await import("../src/lighting");
+  driveStops = await import("../src/driveStopMonitor");
   server = app.listen(0, "127.0.0.1");
   await new Promise<void>(resolve => server.once("listening", resolve));
   origin = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
@@ -55,6 +57,79 @@ test("private trip credentials and active location sharing", async () => {
   assert.equal(read.headers.get("cache-control"), "no-store");
   assert.equal("writeToken" in read.data, false);
   assert.equal("token_hash" in read.data, false);
+});
+test("remote-drive stop warnings use a cancel window, notify shared contacts, and ignore mapped places", async () => {
+  const realNow = Date.now;
+  let now = 1_800_000_000_000;
+  let buildingAt: { lat: number; lng: number } | null = null;
+  Date.now = () => now;
+  globalThis.fetch = (async (url: string | URL | Request, options?: RequestInit) => {
+    if (String(url).includes("overpass-api")) {
+      const elements = buildingAt ? [{
+        type: "node", id: 1, lat: buildingAt.lat, lon: buildingAt.lng, tags: { building: "yes" },
+      }] : [];
+      return Response.json({ elements });
+    }
+    return realFetch(url, options);
+  }) as typeof fetch;
+
+  const createDrive = async () => {
+    const created = await call("/trips", { routeGeometry: geometry, etaSeconds: 300, demo: false, travelMode: "driving" });
+    assert.equal(created.status, 201);
+    return created.data as TripCredentials;
+  };
+  const updateAt = async (drive: TripCredentials, lat: number, lng: number) => {
+    const result = await call(`/trips/${drive.tripId}/location`, { lat, lng, accuracy: 5, timestamp: now }, drive.writeToken);
+    assert.equal(result.status, 200);
+    return result;
+  };
+  try {
+    const cancelled = await createDrive();
+    await updateAt(cancelled, 0, 0);
+    now += 5000; await updateAt(cancelled, 0, 0);
+    now += 60_000; await updateAt(cancelled, 0, 0);
+    await driveStops.processDriveStopAlerts(now);
+    let tracked = await call(`/track/${cancelled.shareCode}`);
+    assert.equal(tracked.data.status, "active");
+    assert.equal(tracked.data.remoteStopAlertDueAt, now + 15_000);
+    assert.equal((await call(`/trips/${cancelled.tripId}/remote-stop/cancel`, {}, cancelled.writeToken)).status, 200);
+    now += 20_000;
+    await driveStops.processDriveStopAlerts(now);
+    tracked = await call(`/track/${cancelled.shareCode}`);
+    assert.equal(tracked.data.remoteStopAlertAt, null);
+
+    const warned = await createDrive();
+    const contactId = "00000000-0000-4000-8000-000000000111";
+    db.database.prepare("INSERT INTO installations(id,token_hash,platform,push_token,created_at,seen_at) VALUES(?,?,?,?,?,?)")
+      .run(contactId, "f".repeat(64), "ios", "ExponentPushToken[test-device]", now, now);
+    db.database.prepare("INSERT INTO trip_recipients(trip_id,installation_id,sender_id,created_at) VALUES(?,?,NULL,?)")
+      .run(warned.tripId, contactId, now);
+    await updateAt(warned, 0, 0);
+    now += 5000; await updateAt(warned, 0, 0);
+    now += 60_000; await updateAt(warned, 0, 0);
+    await driveStops.processDriveStopAlerts(now);
+    tracked = await call(`/track/${warned.shareCode}`);
+    assert.equal(tracked.data.remoteStopAlertDueAt, now + 15_000);
+    now += 15_001;
+    await driveStops.processDriveStopAlerts(now);
+    tracked = await call(`/track/${warned.shareCode}`);
+    assert.equal(tracked.data.status, "active");
+    assert.equal(tracked.data.remoteStopAlertAt, now);
+    assert.equal(db.database.prepare("SELECT event FROM notification_outbox WHERE trip_id = ? AND event = 'remote-stop'").get(warned.tripId)?.event, "remote-stop");
+
+    const builtArea = await createDrive();
+    buildingAt = { lat: 0.02, lng: 0 };
+    await updateAt(builtArea, 0.02, 0);
+    now += 5000; await updateAt(builtArea, 0.02, 0);
+    now += 60_000; await updateAt(builtArea, 0.02, 0);
+    await driveStops.processDriveStopAlerts(now);
+    tracked = await call(`/track/${builtArea.shareCode}`);
+    assert.equal(tracked.data.remoteStopAlertDueAt, null);
+    assert.equal(tracked.data.remoteStopAlertAt, null);
+  } finally {
+    Date.now = realNow;
+    globalThis.fetch = realFetch;
+  }
 });
 test("driving trips preserve their mode and enforce route distance and ETA limits", async () => {
   const longWalkingRoute: Geometry = { type: "LineString", coordinates: [[0, 0], [0.5, 0]] };

@@ -59,7 +59,7 @@ export function removeWidgetSubscription(installationId: string, activityId: unk
   if (typeof activityId !== "string" || activityId.length > 150) throw new HttpError(400, "Invalid activity identifier.");
   database.prepare("DELETE FROM widget_subscriptions WHERE installation_id = ? AND activity_id = ?").run(installationId, activityId);
 }
-export function scheduleTripUpdate(tripId: string, event: "refresh" | "arrived" | "help") {
+export function scheduleTripUpdate(tripId: string, event: "refresh" | "arrived" | "help" | "remote-stop") {
   const recipients = database.prepare(`SELECT i.id,i.platform,i.push_token FROM trip_recipients r JOIN installations i ON i.id = r.installation_id WHERE r.trip_id = ?`)
     .all(tripId) as { id: string; platform: string; push_token: string | null }[];
   for (const r of recipients) {
@@ -76,8 +76,12 @@ export function scheduleTripUpdate(tripId: string, event: "refresh" | "arrived" 
 export const notificationTransport = {
   async expo(token: string, state: WidgetState, event: string) {
     const visible = event !== "refresh";
-    const title = state.status === "help" ? "Safe Walk: help requested" : state.status === "arrived" ? "Safe Walk: contact arrived" : "A contact shared a Safe Walk";
-    const body = state.status === "help"
+    const title = event === "remote-stop" ? "Safe Walk: remote stop warning"
+      : state.status === "help" ? "Safe Walk: help requested"
+        : state.status === "arrived" ? "Safe Walk: contact arrived" : "A contact shared a Safe Walk";
+    const body = event === "remote-stop"
+      ? "Your contact's drive appears stopped in a remote area. Please check in with them."
+      : state.status === "help"
       ? "Open the app to see the last shared location. Contact them directly."
       : state.status === "arrived"
         ? "Your contact confirmed they’ve arrived. Location sharing has stopped."

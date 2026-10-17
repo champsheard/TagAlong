@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import { database } from "./db.js";
 import { geocode } from "./geocode";
 import { demoRoutes, planRoutes } from "./routes";
-import { createTrip, endTrip, trackTrip, updateLocation } from "./trips";
+import { cancelDriveStopAlert, createTrip, endTrip, trackTrip, updateLocation } from "./trips";
 import { HttpError } from "./errors";
 import { rateLimit } from "./rateLimit";
 import { contactsConfig, contactsRouter } from "./contactsRouter";
@@ -59,6 +59,9 @@ app.post("/api/trips", rateLimit(20, 3600000), (request, response) => {
 const token = (request: express.Request) => request.headers.authorization?.startsWith("Bearer ") ? request.headers.authorization.slice(7) : undefined;
 app.post("/api/trips/:id/location", (request, response) => {
   response.json(updateLocation(request.params.id as string, token(request), request.body ?? {}));
+});
+app.post("/api/trips/:id/remote-stop/cancel", (request, response) => {
+  response.json(cancelDriveStopAlert(request.params.id as string, token(request)));
 });
 app.post("/api/trips/:id/end", (request, response) => {
   response.json(endTrip(request.params.id as string, token(request), request.body?.status));

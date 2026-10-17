@@ -19,6 +19,9 @@ export type TripStatus = "active" | "arrived" | "help";
 export type TrackingData = {
   status: TripStatus; lastLocation: Position | null; lastUpdateAt: number | null;
   route: Geometry; etaAt: number; startedAt: number; expiresAt: number; demo: boolean; travelMode: TravelMode;
+  remoteStopAlertDueAt?: number | null;
+  remoteStopAlertAt?: number | null;
+  remoteStopAlertClearedAt?: number | null;
 };
 export type TripCredentials = {
   tripId: string; shareCode: string; writeToken: string;

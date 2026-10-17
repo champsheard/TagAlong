@@ -5,11 +5,16 @@ import { database } from "./db";
 import { HttpError } from "./errors";
 import { validPoint, validateGeometry } from "./validation";
 import { scheduleTripUpdate } from "./notifications";
+import { driveStopAlertState, recordDriveStopLocation } from "./driveStopMonitor";
 
 type TripRow = {
   id: string; share_code: string; token_hash: string; route: string;
   status: TripStatus; started_at: number; ended_at: number | null; eta_at: number;
   expires_at: number; last_location: string | null; last_update_at: number | null; demo: number; travel_mode: TravelMode;
+  stop_started_at: number | null; stop_anchor_lat: number | null; stop_anchor_lng: number | null;
+  stop_place_checked_at: number | null; stop_has_mapped_place: number | null;
+  remote_stop_alert_due_at: number | null; remote_stop_alert_at: number | null;
+  remote_stop_alert_cleared_at: number | null;
 };
 const digest = (token: string) => createHash("sha256").update(token).digest("hex");
 export function createTrip(body: { routeGeometry?: Geometry; etaSeconds?: number; demo?: boolean; travelMode?: TravelMode }) {
@@ -47,10 +52,12 @@ export function updateLocation(id: string, token: string | undefined, body: Posi
   const previous = row.last_location ? JSON.parse(row.last_location) as Position : null;
   if (previous && body.timestamp < previous.timestamp) throw new HttpError(409, "An older location update was ignored.");
   const location: Position = { lat: body.lat, lng: body.lng, accuracy: body.accuracy, timestamp: body.timestamp };
+  const now = Date.now();
   database.prepare("UPDATE trips SET last_location = ?, last_update_at = ? WHERE id = ? AND status = 'active'")
-    .run(JSON.stringify(location), Date.now(), id);
+    .run(JSON.stringify(location), now, id);
+  if (row.travel_mode === "driving" && !row.demo) recordDriveStopLocation(id, previous, location, now);
   scheduleTripUpdate(id, "refresh");
-  return { ok: true };
+  return { ok: true, ...driveStopAlertState(id) };
 }
 export function endTrip(id: string, token: string | undefined, status: TripStatus) {
   const row = writable(id, token);
@@ -60,9 +67,23 @@ export function endTrip(id: string, token: string | undefined, status: TripStatu
     throw new HttpError(409, "This trip has already ended.");
   }
   const now = Date.now();
-  database.prepare("UPDATE trips SET status = ?, ended_at = ?, expires_at = ? WHERE id = ?")
+  database.prepare(`UPDATE trips SET status = ?, ended_at = ?, expires_at = ?,
+    stop_started_at = NULL, stop_anchor_lat = NULL, stop_anchor_lng = NULL,
+    stop_place_checked_at = NULL, stop_has_mapped_place = NULL,
+    remote_stop_alert_due_at = NULL WHERE id = ?`)
     .run(status, now, now + 14400000, id);
   scheduleTripUpdate(id, status);
+  return { ok: true };
+}
+export function cancelDriveStopAlert(id: string, token: string | undefined) {
+  const row = writable(id, token);
+  if (row.status !== "active" || row.travel_mode !== "driving" || row.demo) {
+    throw new HttpError(409, "There is no cancellable drive warning.");
+  }
+  const result = database.prepare(`UPDATE trips SET remote_stop_alert_due_at = NULL
+    WHERE id = ? AND status = 'active' AND travel_mode = 'driving' AND remote_stop_alert_due_at IS NOT NULL`)
+    .run(id);
+  if (!result.changes) throw new HttpError(409, "The drive warning is no longer waiting to be sent.");
   return { ok: true };
 }
 export function trackTrip(code: string): TrackingData {
@@ -73,5 +94,6 @@ export function trackTrip(code: string): TrackingData {
     status: row.status, lastLocation: row.last_location ? JSON.parse(row.last_location) : null,
     lastUpdateAt: row.last_update_at, route: JSON.parse(row.route),
     etaAt: row.eta_at, startedAt: row.started_at, expiresAt: row.expires_at, demo: !!row.demo, travelMode: row.travel_mode,
+    ...driveStopAlertState(row.id),
   };
 }
