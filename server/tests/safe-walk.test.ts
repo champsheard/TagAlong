@@ -350,6 +350,7 @@ test("driving route planning uses the car profile, skips lighting, and enforces 
     assert.equal(result.data.routes[0].lightScore, null);
     assert.equal(overpassRequests, 0);
     assert.match(result.data.notices[0], /not turn-by-turn navigation/);
+    assert.doesNotMatch(result.data.notices.join(" "), /Routes are limited to 300 km and five hours; tracking links expire after six hours/);
 
     const previousRequest = requestedUrl;
     assert.equal((await call("/routes", { from: { lat: 0, lng: 0 }, to: { lat: 0, lng: 3 }, travelMode: "driving" })).status, 400);

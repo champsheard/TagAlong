@@ -227,7 +227,11 @@ export default function Index() {
               </View>
             </View>
             {walk.result.demo ? <View style={{ marginTop: 12 }}><Notice tone="warning">Demo walk · Routes, movement, and lighting scores are simulated. They do not describe real streets or real lighting.</Notice></View> : null}
-            {!!walk.result.notices.length && walk.result.notices.map((notice, i) => <View key={i} style={{ marginTop: 9 }}><Notice>{notice}</Notice></View>)}
+            {walk.result.notices.filter(notice =>
+              !notice.includes("GraphHopper supplied these backup routes") &&
+              notice !== "Lighting data is temporarily unavailable. Route options are real, but no lighting estimate can be given." &&
+              notice !== "Without lighting data, both choices use the fastest path; the Safest option has no lighting estimate.",
+            ).map((notice, i) => <View key={i} style={{ marginTop: 9 }}><Notice>{notice}</Notice></View>)}
             <RouteProviderAttribution provider={walk.result.provider} />
             <Text style={s.routeSectionLabel}>PICK A ROUTE</Text>
             <View style={s.routeChoices}>
@@ -257,13 +261,11 @@ export default function Index() {
                 </Pressable>;
               })}
             </View>
-             {walk.travelMode === "walking" ? <View style={s.disclaimer}><Text style={s.disclaimerTitle}>Lighting is an estimate</Text><Text style={s.body}>Scores reflect available lighting data—not a guarantee that a street is lit, open, or safe right now.</Text></View> : null}
             {!walk.result.demo ? <Pressable accessibilityRole="switch" accessibilityState={{ checked: walk.demo }} onPress={() => walk.setDemo(!walk.demo)} style={s.simulationToggle}>
                <View style={{ flex: 1 }}><Text style={s.simulationTitle}>Simulate movement</Text><Text style={s.simulationHint}>Move along this route for 90 seconds to preview tracking.</Text></View>
               <View style={[s.switchTrack, walk.demo && s.switchOn]}><View style={[s.switchThumb, walk.demo && s.thumbOn]} /></View>
             </Pressable> : null}
              {walk.demo && !walk.result.demo ? <View style={{ marginTop: 10 }}><Notice tone="warning">Simulated movement follows this route for 90 seconds. It does not share a real location.</Notice></View> : null}
-             {walk.travelMode === "driving" && !walk.demo ? <View style={{ marginTop: 10 }}><Notice tone="warning">Remote-stop check: if live location stays within 35 m for 60 seconds and no mapped building or place is within 250 m, you’ll have 15 seconds to cancel before Tagalong warns app contacts receiving this drive. Map data, GPS, and connection can limit detection. It does not contact emergency services.</Notice></View> : null}
             {walk.error ? <View style={{ marginTop: 10 }}><Notice tone="danger">{walk.error}</Notice></View> : null}
             <View style={s.buttonRow}>
                <ActionButton title={walk.travelMode === "driving" ? "Start drive" : "Start walk"} onPress={() => setShowStartConfirm(true)} disabled={!route} style={{ flex: 1 }} />
@@ -449,8 +451,6 @@ const s = StyleSheet.create({
   extraText: { color: palette.evergreen, fontSize: 12, fontWeight: "900" },
   reason: { color: palette.ink, fontSize: 13, lineHeight: 19, marginTop: 10 },
   limited: { color: palette.amber, fontSize: 12, lineHeight: 17, marginTop: 5, fontWeight: "700" },
-  disclaimer: { backgroundColor: "#edf0e4", borderRadius: 15, padding: 14, marginTop: 12, borderWidth: 1, borderColor: "#dce1d0" },
-  disclaimerTitle: { color: palette.evergreen, fontSize: 14, fontWeight: "900", marginBottom: 4 },
   body: { color: palette.muted, fontSize: 14, lineHeight: 21 },
   buttonRow: { flexDirection: "row", gap: 9, marginTop: 13 },
   textAction: { alignSelf: "center", paddingVertical: 12, paddingHorizontal: 12 },

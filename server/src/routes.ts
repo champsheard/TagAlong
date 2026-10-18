@@ -167,7 +167,7 @@ export async function planRoutes(from: Point, to: Point, travelMode: TravelMode 
     const routes = unique.slice(0, 2).map((route, index) => ({ ...route, label: index === 0 ? "Fastest" : "Alternative" } as RouteOption));
     return {
       routes, travelMode, demo: false, provider,
-      notices: [...(providerNotice ? [providerNotice] : []), "Driving routes provide route and ETA estimates only—not turn-by-turn navigation, live traffic rerouting, or road-closure alerts. Routes are limited to 300 km and five hours; tracking links expire after six hours."],
+      notices: [...(providerNotice ? [providerNotice] : []), "Driving routes provide route and ETA estimates only—not turn-by-turn navigation, live traffic rerouting, or road-closure alerts."],
     };
   }
   const notices: string[] = providerNotice ? [providerNotice] : [];
