@@ -1,0 +1,767 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#102c24" />
+    <meta name="description" content="A video-ready Tagalong product demo using the live app interface and simulated trip data." />
+    <title>Tagalong — App Demo</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --forest: #102c24;
+        --forest-deep: #091b17;
+        --forest-soft: #1a4035;
+        --paper: #f7f5ed;
+        --muted: #b8c3b6;
+        --citron: #d4e38a;
+        --amber: #f1d5a0;
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: var(--forest-deep);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      button { font: inherit; }
+
+      .stage {
+        position: relative;
+        isolation: isolate;
+        width: min(100vw, calc(100svh * 16 / 9));
+        height: min(100svh, calc(100vw * 9 / 16));
+        aspect-ratio: 16 / 9;
+        overflow: hidden;
+        color: var(--paper);
+        background:
+          radial-gradient(ellipse at 79% 53%, rgba(100, 135, 82, .25), transparent 37%),
+          radial-gradient(ellipse at 17% 7%, rgba(206, 225, 139, .1), transparent 36%),
+          linear-gradient(122deg, #102d25 0%, #0b211b 55%, #15362c 100%);
+      }
+
+      .stage::before, .stage::after {
+        position: absolute;
+        z-index: -1;
+        content: "";
+        pointer-events: none;
+      }
+
+      .stage::before {
+        inset: 0;
+        opacity: .2;
+        background-image:
+          linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px);
+        background-size: 52px 52px;
+        mask-image: linear-gradient(90deg, transparent, #000 42%, #000);
+      }
+
+      .stage::after {
+        width: 48%;
+        height: 78%;
+        right: 2%;
+        top: 15%;
+        border: 1px solid rgba(212, 227, 138, .1);
+        border-radius: 50%;
+        transform: rotate(-24deg);
+        box-shadow: 0 0 0 40px rgba(212, 227, 138, .025), 0 0 0 90px rgba(212, 227, 138, .02);
+      }
+
+      .topbar {
+        position: absolute;
+        z-index: 5;
+        top: 0;
+        left: 0;
+        right: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: clamp(18px, 2.4vw, 38px) clamp(22px, 4.3vw, 74px);
+      }
+
+      .brand-lockup, .top-actions, .brand-copy, .status-line, .playback {
+        display: flex;
+        align-items: center;
+      }
+
+      .brand-lockup { gap: 12px; }
+
+      .brand-mark {
+        display: grid;
+        width: 39px;
+        height: 39px;
+        place-items: center;
+        border: 1px solid rgba(212, 227, 138, .65);
+        border-radius: 13px;
+        color: var(--citron);
+        font-weight: 900;
+      }
+
+      .brand-copy { flex-direction: column; align-items: flex-start; gap: 2px; }
+      .brand-name { font-size: 15px; font-weight: 850; letter-spacing: -.02em; }
+      .brand-sub { color: #9eafa1; font-size: 9px; font-weight: 800; letter-spacing: .18em; }
+
+      .top-actions { gap: 12px; }
+
+      .demo-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 12px;
+        border: 1px solid rgba(241, 213, 160, .27);
+        border-radius: 99px;
+        background: rgba(241, 213, 160, .08);
+        color: #f2dbb3;
+        font-size: 9px;
+        font-weight: 800;
+        letter-spacing: .11em;
+        white-space: nowrap;
+      }
+
+      .demo-badge::before {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--amber);
+        content: "";
+      }
+
+      .layout {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        grid-template-columns: 1.06fr .94fr;
+        align-items: center;
+        padding: 8.4% 7.2% 7.2%;
+      }
+
+      .story {
+        position: relative;
+        z-index: 2;
+        max-width: 720px;
+        padding: 0 5% 0 0;
+      }
+
+      .eyebrow {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--citron);
+        font-size: 11px;
+        font-weight: 850;
+        letter-spacing: .2em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow::before {
+        width: 23px;
+        height: 1px;
+        background: var(--citron);
+        content: "";
+      }
+
+      h1 {
+        max-width: 10ch;
+        margin: 24px 0 19px;
+        color: var(--paper);
+        font-size: clamp(37px, 5.2vw, 83px);
+        font-weight: 720;
+        letter-spacing: -.065em;
+        line-height: .98;
+        text-wrap: balance;
+      }
+
+      .description {
+        max-width: 36ch;
+        margin: 0;
+        color: #c6d0c3;
+        font-size: clamp(14px, 1.35vw, 21px);
+        line-height: 1.55;
+      }
+
+      .story-footer {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-top: clamp(26px, 4vh, 52px);
+      }
+
+      .step-number {
+        color: var(--citron);
+        font-size: 13px;
+        font-weight: 850;
+        letter-spacing: .1em;
+      }
+
+      .step-rule {
+        width: 44px;
+        height: 1px;
+        background: rgba(212, 227, 138, .42);
+      }
+
+      .step-label {
+        color: #dbe2d5;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+      }
+
+      .privacy-note {
+        max-width: 38ch;
+        margin: 25px 0 0;
+        color: #91a395;
+        font-size: 10px;
+        line-height: 1.5;
+      }
+
+      .phone-stage {
+        position: relative;
+        display: grid;
+        height: 100%;
+        place-items: center;
+        perspective: 1500px;
+      }
+
+      .phone-glow {
+        position: absolute;
+        width: 74%;
+        height: 65%;
+        border-radius: 50%;
+        background: rgba(181, 209, 109, .13);
+        filter: blur(65px);
+      }
+
+      .phone {
+        position: relative;
+        z-index: 1;
+        height: min(89%, 844px);
+        aspect-ratio: 390 / 844;
+        padding: 9px;
+        overflow: hidden;
+        border: 1px solid rgba(245, 245, 231, .23);
+        border-radius: 39px;
+        background: #0c100f;
+        box-shadow: 0 38px 85px rgba(0, 0, 0, .52), 0 0 0 1px rgba(255,255,255,.05);
+        transform: rotateY(-5deg) rotateX(1deg);
+        animation: phoneFloat 7s ease-in-out infinite;
+      }
+
+      .screen {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        border-radius: 31px;
+        background: #e5e6db;
+      }
+
+      .screen iframe {
+        position: absolute;
+        top: 0;
+        left: 0;
+        display: block;
+        width: 390px;
+        height: 844px;
+        border: 0;
+        border-radius: inherit;
+        background: #e5e6db;
+        pointer-events: none;
+        transform-origin: top left;
+      }
+
+      .screen::after {
+        position: absolute;
+        inset: 0;
+        border: 1px solid rgba(9, 27, 23, .1);
+        border-radius: inherit;
+        content: "";
+        pointer-events: none;
+      }
+
+      .phone-label {
+        position: absolute;
+        z-index: 2;
+        right: -10px;
+        bottom: 5%;
+        padding: 9px 12px;
+        border: 1px solid rgba(212, 227, 138, .24);
+        border-radius: 99px;
+        background: rgba(13, 36, 29, .88);
+        color: #e4ebd7;
+        font-size: 8px;
+        font-weight: 850;
+        letter-spacing: .12em;
+        white-space: nowrap;
+        box-shadow: 0 10px 28px rgba(0,0,0,.25);
+      }
+
+      .footer {
+        position: absolute;
+        z-index: 5;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        display: grid;
+        grid-template-columns: 1fr minmax(120px, 26%) auto;
+        align-items: center;
+        gap: clamp(14px, 2vw, 32px);
+        padding: 20px clamp(22px, 4.3vw, 74px);
+        background: linear-gradient(0deg, rgba(7, 24, 19, .92), rgba(7, 24, 19, 0));
+      }
+
+      .status-line { gap: 12px; color: #a8b7a9; font-size: 10px; }
+      .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--citron); box-shadow: 0 0 12px rgba(212,227,138,.7); }
+      .status-text { font-weight: 700; }
+      .step-count { color: #718678; font-variant-numeric: tabular-nums; }
+
+      .progress {
+        height: 3px;
+        overflow: hidden;
+        border-radius: 99px;
+        background: rgba(228, 235, 219, .16);
+      }
+
+      .progress-fill {
+        width: 0;
+        height: 100%;
+        border-radius: inherit;
+        background: var(--citron);
+        transition: width .7s cubic-bezier(.2,.7,.2,1);
+      }
+
+      .playback { justify-content: flex-end; gap: 8px; }
+
+      .control {
+        min-height: 36px;
+        padding: 0 13px;
+        border: 1px solid rgba(232, 238, 225, .23);
+        border-radius: 10px;
+        background: rgba(238, 242, 229, .07);
+        color: #e8eee1;
+        font-size: 10px;
+        font-weight: 750;
+        cursor: pointer;
+        transition: background .2s, border-color .2s, transform .2s;
+      }
+
+      .control:hover { border-color: rgba(212, 227, 138, .65); background: rgba(212, 227, 138, .12); transform: translateY(-1px); }
+      .control.primary { border-color: var(--citron); background: var(--citron); color: #173426; }
+      .control:disabled { opacity: .55; cursor: wait; transform: none; }
+
+      .error-message {
+        position: absolute;
+        z-index: 9;
+        right: 24px;
+        bottom: 78px;
+        max-width: 380px;
+        padding: 13px 16px;
+        border: 1px solid rgba(255, 177, 151, .45);
+        border-radius: 12px;
+        background: #462a24;
+        color: #ffe5dc;
+        font-size: 12px;
+        line-height: 1.4;
+      }
+
+      .error-message[hidden] { display: none; }
+      .stage.scene-change .story { animation: storyIn .72s cubic-bezier(.2,.7,.2,1) both; }
+      .stage.scene-change .phone { animation: phoneIn .8s cubic-bezier(.2,.7,.2,1) both, phoneFloat 7s .8s ease-in-out infinite; }
+      .stage.clean .playback, .stage.clean .status-line { opacity: 0; pointer-events: none; }
+
+      @keyframes storyIn {
+        from { opacity: .1; transform: translateY(18px); filter: blur(5px); }
+        to { opacity: 1; transform: translateY(0); filter: blur(0); }
+      }
+
+      @keyframes phoneIn {
+        from { opacity: .55; transform: translateY(22px) rotateY(-12deg) scale(.97); }
+        to { opacity: 1; transform: translateY(0) rotateY(-5deg) rotateX(1deg) scale(1); }
+      }
+
+      @keyframes phoneFloat {
+        0%, 100% { margin-top: 0; }
+        50% { margin-top: -10px; }
+      }
+
+      @media (max-width: 760px) {
+        .stage {
+          width: min(100vw, calc(100svh * 9 / 16));
+          height: min(100svh, calc(100vw * 16 / 9));
+          aspect-ratio: 9 / 16;
+        }
+
+        .topbar { padding: 20px 20px 0; align-items: flex-start; }
+        .brand-mark { width: 34px; height: 34px; border-radius: 11px; }
+        .demo-badge { max-width: 125px; padding: 7px 9px; font-size: 7px; line-height: 1.35; white-space: normal; }
+        .top-actions { gap: 6px; }
+        .layout {
+          display: block;
+          padding: 0;
+        }
+
+        .story { position: absolute; top: 15%; right: 8%; left: 8%; max-width: none; padding: 0; }
+        h1 { max-width: none; margin: 10px 0 7px; font-size: clamp(25px, 7vw, 34px); }
+        .description { max-width: 42ch; font-size: clamp(11px, 3.2vw, 13px); line-height: 1.4; }
+        .story-footer { display: none; }
+        .privacy-note { display: none; }
+        .phone-stage { position: absolute; inset: 29% 0 11%; height: auto; }
+        .phone { height: min(96%, 680px); border-radius: 32px; padding: 7px; }
+        .screen { border-radius: 25px; }
+        .phone-label { right: -4px; bottom: 1%; font-size: 7px; }
+        .footer {
+          grid-template-columns: 1fr auto;
+          gap: 10px;
+          padding: 13px 18px 18px;
+        }
+        .progress { grid-column: 1 / -1; grid-row: 1; }
+        .status-line { grid-column: 1; grid-row: 2; gap: 7px; font-size: 9px; }
+        .playback { grid-column: 2; grid-row: 2; gap: 5px; }
+        .control { min-height: 32px; padding: 0 9px; font-size: 9px; }
+        .error-message { right: 14px; bottom: 70px; left: 14px; max-width: none; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="stage" id="stage" data-scene="intro" aria-label="Tagalong video demo">
+      <header class="topbar">
+        <div class="brand-lockup" aria-label="Tagalong app demo">
+          <div class="brand-mark" aria-hidden="true">T</div>
+          <div class="brand-copy">
+            <span class="brand-name">Tagalong</span>
+            <span class="brand-sub">PRODUCT DEMO</span>
+          </div>
+        </div>
+        <div class="top-actions">
+          <span class="demo-badge">SIMULATED DATA · NO LIVE LOCATION</span>
+        </div>
+      </header>
+
+      <div class="layout">
+        <section class="story" aria-live="polite" aria-atomic="true">
+          <div class="eyebrow" id="eyebrow">THE EVERYDAY JOURNEY</div>
+          <h1 id="sceneTitle">A steadier way home.</h1>
+          <p class="description" id="sceneDescription">Compare route options, then choose when a trip starts and when sharing ends.</p>
+          <div class="story-footer">
+            <span class="step-number" id="stepNumber">01</span>
+            <span class="step-rule" aria-hidden="true"></span>
+            <span class="step-label" id="stepLabel">Plan</span>
+          </div>
+          <p class="privacy-note">The phone shows the actual Tagalong interface. This showcase uses simulated routes, skips saved trips and contacts, and never requests GPS.</p>
+        </section>
+
+        <div class="phone-stage">
+          <div class="phone-glow" aria-hidden="true"></div>
+          <div class="phone">
+            <div class="screen">
+              <iframe id="appFrame" title="Actual Tagalong app interface using simulated demo data" loading="eager" tabindex="-1"></iframe>
+            </div>
+          </div>
+          <div class="phone-label">ACTUAL APP UI · SAMPLE WALK</div>
+        </div>
+      </div>
+
+      <footer class="footer">
+        <div class="status-line" aria-live="polite">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span class="status-text" id="statusText">Loading the app preview…</span>
+          <span class="step-count" id="stepCount">01 / 05</span>
+        </div>
+        <div class="progress" role="progressbar" aria-label="Demo progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="playback">
+          <button class="control primary" id="playButton" type="button" disabled>Loading app…</button>
+          <button class="control" id="cleanButton" type="button" aria-pressed="false">Clean capture</button>
+          <button class="control" id="fullscreenButton" type="button">Full screen</button>
+        </div>
+      </footer>
+
+      <div class="error-message" id="errorMessage" role="alert" hidden></div>
+    </main>
+
+    <script>
+      (() => {
+        const stage = document.getElementById("stage");
+        const frame = document.getElementById("appFrame");
+        const screen = frame.parentElement;
+        const playButton = document.getElementById("playButton");
+        const cleanButton = document.getElementById("cleanButton");
+        const fullscreenButton = document.getElementById("fullscreenButton");
+        const statusText = document.getElementById("statusText");
+        const progress = document.querySelector(".progress");
+        const progressFill = document.getElementById("progressFill");
+        const errorMessage = document.getElementById("errorMessage");
+        const title = document.getElementById("sceneTitle");
+        const description = document.getElementById("sceneDescription");
+        const eyebrow = document.getElementById("eyebrow");
+        const stepNumber = document.getElementById("stepNumber");
+        const stepLabel = document.getElementById("stepLabel");
+        const stepCount = document.getElementById("stepCount");
+
+        const scenes = [
+          { eyebrow: "THE EVERYDAY JOURNEY", title: "A steadier way home.", description: "Compare route options, then choose when a trip starts and when sharing ends.", label: "Plan" },
+          { eyebrow: "01 · ROUTE OPTIONS", title: "Compare before you go.", description: "See the fastest route beside an estimate that favors available lighting data.", label: "Compare" },
+          { eyebrow: "02 · YOUR CHOICE", title: "Start only when you’re ready.", description: "Review the trip details and sharing terms before the app begins a walk.", label: "Confirm" },
+          { eyebrow: "03 · TRIP IN PROGRESS", title: "Know where the trip stands.", description: "The live screen keeps the route and trip status together. This sample movement is simulated.", label: "Track" },
+          { eyebrow: "04 · TRIP COMPLETE", title: "Arrived. Sharing ends.", description: "End a trip when you arrive. In this demo, no real location or contacts are used.", label: "Arrive" }
+        ];
+
+        let runId = 0;
+        let running = false;
+        let paused = false;
+
+        function syncFrameScale() {
+          if (!screen) return;
+          const scale = Math.min(screen.clientWidth / 390, screen.clientHeight / 844);
+          frame.style.transform = `scale(${scale})`;
+          frame.style.left = `${Math.max(0, (screen.clientWidth - 390 * scale) / 2)}px`;
+          frame.style.top = `${Math.max(0, (screen.clientHeight - 844 * scale) / 2)}px`;
+        }
+
+        function setScene(index) {
+          const scene = scenes[index];
+          eyebrow.textContent = scene.eyebrow;
+          title.textContent = scene.title;
+          description.textContent = scene.description;
+          stepNumber.textContent = String(index + 1).padStart(2, "0");
+          stepLabel.textContent = scene.label;
+          stepCount.textContent = `${String(index + 1).padStart(2, "0")} / ${String(scenes.length).padStart(2, "0")}`;
+          const value = Math.round((index / (scenes.length - 1)) * 100);
+          progressFill.style.width = `${value}%`;
+          progress.setAttribute("aria-valuenow", String(value));
+          stage.classList.remove("scene-change");
+          void stage.offsetWidth;
+          stage.classList.add("scene-change");
+        }
+
+        function showcaseUrl() {
+          return `${window.location.origin}/?tagalongShowcase=1&run=${Date.now()}`;
+        }
+
+        function appDocument() {
+          try { return frame.contentDocument; } catch { return null; }
+        }
+
+        function normalize(value) {
+          return String(value || "")
+            .replace(/[’‘]/g, "'")
+            .replace(/[“”]/g, '"')
+            .replace(/\s+/g, " ")
+            .trim()
+            .toLowerCase();
+        }
+
+        function sleep(ms, token) {
+          return new Promise((resolve, reject) => {
+            let remaining = ms;
+            let last = Date.now();
+            const timer = window.setInterval(() => {
+              if (token !== runId) {
+                window.clearInterval(timer);
+                reject(new Error("Playback was restarted."));
+                return;
+              }
+              const now = Date.now();
+              if (!paused) remaining -= now - last;
+              last = now;
+              if (remaining <= 0) {
+                window.clearInterval(timer);
+                resolve();
+              }
+            }, 40);
+          });
+        }
+
+        async function waitForText(text, token, timeout = 18000) {
+          const endAt = Date.now() + timeout;
+          while (Date.now() < endAt) {
+            if (token !== runId) throw new Error("Playback was restarted.");
+            const doc = appDocument();
+            if (doc?.body && normalize(doc.body.innerText).includes(normalize(text))) return doc;
+            await sleep(120, token);
+          }
+          throw new Error(`The Tagalong app did not reach “${text}”. Check the web preview and try again.`);
+        }
+
+        async function loadAppPreview(token) {
+          for (let attempt = 0; attempt < 8; attempt += 1) {
+            if (token !== runId) throw new Error("Playback was restarted.");
+            setStatus(attempt ? "Waiting for the app preview to finish starting" : "Loading the actual Tagalong app");
+            await new Promise((resolve, reject) => {
+              const onLoad = () => { window.clearTimeout(timer); syncFrameScale(); resolve(); };
+              const timer = window.setTimeout(() => {
+                frame.removeEventListener("load", onLoad);
+                reject(new Error("The app preview took too long to respond."));
+              }, 12000);
+              frame.addEventListener("load", onLoad, { once: true });
+              frame.src = showcaseUrl();
+            });
+            const pageText = normalize(appDocument()?.body?.innerText);
+            if (pageText.includes("expo is starting")) {
+              await sleep(750, token);
+              continue;
+            }
+            try {
+              return await waitForText("Where are you headed?", token, 12000);
+            } catch (error) {
+              if (!normalize(appDocument()?.body?.innerText).includes("expo is starting")) throw error;
+              await sleep(750, token);
+            }
+          }
+          throw new Error("The app preview did not finish starting. Refresh this page and try again.");
+        }
+
+        function isVisible(element) {
+          const rect = element.getBoundingClientRect();
+          const style = element.ownerDocument.defaultView.getComputedStyle(element);
+          return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+        }
+
+        async function clickAppAction(text, token, preferLast = false) {
+          const doc = await waitForText(text, token);
+          const expected = normalize(text);
+          const matches = [...doc.querySelectorAll('button, [role="button"], [role="radio"]')]
+            .filter(isVisible)
+            .filter(element => normalize(element.innerText || element.textContent || element.getAttribute("aria-label")) === expected);
+          const target = preferLast ? matches[matches.length - 1] : matches[0];
+          if (!target) throw new Error(`Could not find the “${text}” control in the actual app UI.`);
+          target.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+          await sleep(520, token);
+          target.click();
+        }
+
+        function setStatus(text) { statusText.textContent = text; }
+
+        async function playDemo() {
+          if (running) return;
+          const token = ++runId;
+          running = true;
+          paused = false;
+          errorMessage.hidden = true;
+          playButton.disabled = true;
+          playButton.textContent = "Preparing demo…";
+          setStatus("Resetting to a clean showcase session");
+          progressFill.style.width = "0%";
+          progress.setAttribute("aria-valuenow", "0");
+          setScene(0);
+
+          try {
+            await loadAppPreview(token);
+            setStatus("Real app UI · sample route only");
+            playButton.textContent = "Playing…";
+            await sleep(1700, token);
+
+            await clickAppAction("Demo", token);
+            await waitForText("Choose your route.", token);
+            setScene(1);
+            setStatus("Comparing simulated route options");
+            await sleep(3900, token);
+
+            await clickAppAction("Start walk", token);
+            await waitForText("Share on your terms.", token);
+            setScene(2);
+            setStatus("Reviewing the actual trip confirmation");
+            await sleep(2700, token);
+
+            await clickAppAction("Start walk", token, true);
+            await waitForText("You’re on your way.", token);
+            setScene(3);
+            setStatus("Simulated movement · no GPS or contacts");
+            await sleep(5700, token);
+
+            await clickAppAction("I’ve arrived", token);
+            await waitForText("Have you arrived?", token);
+            setStatus("Confirming arrival");
+            await sleep(1350, token);
+            await clickAppAction("Yes, I’ve arrived", token);
+            await waitForText("You made it.", token);
+            setScene(4);
+            setStatus("Demo complete · the simulated trip has ended");
+            await sleep(4300, token);
+            playButton.textContent = "Replay demo";
+          } catch (error) {
+            if (token === runId) {
+              errorMessage.textContent = error instanceof Error ? error.message : "The demo stopped unexpectedly.";
+              errorMessage.hidden = false;
+              setStatus("Demo stopped");
+              playButton.textContent = "Try again";
+            }
+          } finally {
+            if (token === runId) {
+              running = false;
+              paused = false;
+              playButton.disabled = false;
+            }
+          }
+        }
+
+        playButton.addEventListener("click", playDemo);
+        cleanButton.addEventListener("click", () => {
+          const clean = stage.classList.toggle("clean");
+          cleanButton.setAttribute("aria-pressed", String(clean));
+          cleanButton.textContent = clean ? "Show controls" : "Clean capture";
+        });
+        fullscreenButton.addEventListener("click", async () => {
+          try {
+            if (document.fullscreenElement) await document.exitFullscreen();
+            else await stage.requestFullscreen();
+          } catch {
+            errorMessage.textContent = "Full screen is unavailable in this preview. Use the browser’s full-screen shortcut instead.";
+            errorMessage.hidden = false;
+          }
+        });
+
+        document.addEventListener("keydown", event => {
+          if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+          if (event.code === "Space") {
+            event.preventDefault();
+            if (running) {
+              paused = !paused;
+              setStatus(paused ? "Paused · press Space to continue" : "Playback resumed");
+            } else {
+              playDemo();
+            }
+          } else if (event.key.toLowerCase() === "r") {
+            playDemo();
+          } else if (event.key.toLowerCase() === "c") {
+            cleanButton.click();
+          } else if (event.key.toLowerCase() === "f") {
+            fullscreenButton.click();
+          }
+        });
+
+        syncFrameScale();
+        if (window.ResizeObserver && screen) new ResizeObserver(syncFrameScale).observe(screen);
+        window.addEventListener("resize", syncFrameScale, { passive: true });
+
+        const initialToken = runId;
+        loadAppPreview(initialToken)
+          .then(() => {
+            if (initialToken !== runId) return;
+            setStatus("Ready · actual app UI loaded");
+            playButton.disabled = false;
+            playButton.textContent = "Play demo";
+          })
+          .catch(error => {
+            if (initialToken !== runId) return;
+            setStatus("App preview is unavailable");
+            playButton.disabled = false;
+            playButton.textContent = "Try again";
+            errorMessage.textContent = error instanceof Error ? error.message : "The app preview could not be loaded.";
+            errorMessage.hidden = false;
+          });
+      })();
+    </script>
+  </body>
+</html>

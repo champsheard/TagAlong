@@ -11,6 +11,7 @@ import { ActionButton, Eyebrow, Notice, SectionTitle } from "../components/WalkU
 import ArrivalFeedback from "../components/ArrivalFeedback";
 import { common, palette } from "../constants/theme";
 import { useContacts } from "../hooks/useContacts";
+import { isShowcaseDemo } from "../lib/presentationDemo";
 
 const formatMinutes = (seconds: number) => Math.max(1, Math.round(seconds / 60));
 const formatDistance = (meters: number) => {
@@ -24,7 +25,8 @@ const routeColors = { fastest: "#87977F", selected: "#426b49" };
 export default function Index() {
   const router = useRouter();
   const walk = useWalk();
-  const contacts = useContacts();
+  const showcaseDemo = isShowcaseDemo();
+  const contacts = useContacts(!showcaseDemo);
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   const [showStartConfirm, setShowStartConfirm] = useState(false);
@@ -113,9 +115,9 @@ export default function Index() {
         <View style={s.brandMark}><View style={s.brandRing} /><Text style={s.brandMarkText}>T</Text></View>
         <View><Text style={s.brand}>Tagalong</Text><Text style={s.tagline}>{walk.phase === "walking" ? walk.travelMode === "driving" ? "Your drive, on your terms" : "Your walk, on your terms" : "A steadier way home"}</Text></View>
       </View>
-        <Pressable accessibilityRole="button" accessibilityLabel="Contacts" onPress={() => router.push("/contacts")} style={({ pressed }) => [s.contactsButton, pressed && s.pressed]}>
+        {!showcaseDemo ? <Pressable accessibilityRole="button" accessibilityLabel="Contacts" onPress={() => router.push("/contacts")} style={({ pressed }) => [s.contactsButton, pressed && s.pressed]}>
           <Text style={s.contactsGlyph}>+</Text><Text style={s.contactsLabel}>Contacts</Text>
-        </Pressable>
+        </Pressable> : null}
     </View>
 
     <DraggableDrawer
@@ -153,7 +155,7 @@ export default function Index() {
               </Pressable>
             </View>
             {walk.routingAvailable === false ? <Notice tone="warning">Route planning is not configured on this server yet. Address search still works; try a Demo walk to explore the experience.</Notice> : null}
-            {!contacts.loading && <View style={s.sharedPreview}>
+            {!showcaseDemo && !contacts.loading && <View style={s.sharedPreview}>
               <View style={s.sharedPreviewTop}>
                 <Eyebrow>SHARED TRIPS</Eyebrow>
                 <Text style={s.sharedCount}>{contacts.error ? "Unavailable" : activeSharedTrips.length ? `${activeSharedTrips.length} active` : "No active trips"}</Text>

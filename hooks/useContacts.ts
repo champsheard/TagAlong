@@ -8,7 +8,7 @@ import { rankContacts, type ContactMatch, type ContactsConfig, type DeviceContac
 import { clearTrackingWidget } from "../lib/trackingWidget";
 import type { TripCredentials } from "../shared/types";
 
-export function useContacts() {
+export function useContacts(enabled = true) {
   const [profile, setProfile] = useState<InstallationProfile | null>(null);
   const [config, setConfig] = useState<ContactsConfig | null>(null);
   const [contacts, setContacts] = useState<DeviceContact[]>([]), [inbox, setInbox] = useState<ReceivedTrip[]>([]);
@@ -17,6 +17,7 @@ export function useContacts() {
   const [error, setError] = useState(""), [notice, setNotice] = useState("");
   const [refreshError, setRefreshError] = useState("");
   useEffect(() => {
+    if (!enabled) { setLoading(false); return; }
     let alive = true;
     (async () => {
       try {
@@ -32,9 +33,9 @@ export function useContacts() {
       } finally { if (alive) setLoading(false); }
     })();
     return () => { alive = false; };
-  }, []);
+  }, [enabled]);
   useEffect(() => {
-    if (!profile) return;
+    if (!enabled || !profile) return;
     let alive = true, polling = false;
     const timer = setInterval(async () => {
       if (polling) return; polling = true;
@@ -45,7 +46,7 @@ export function useContacts() {
       finally { polling = false; }
     }, 10000);
     return () => { alive = false; clearInterval(timer); };
-  }, [profile?.installationId]);
+  }, [enabled, profile?.installationId]);
   async function perform(action: () => Promise<void>) {
     if (busy) return; setBusy(true); setError(""); setNotice("");
     try { await action(); } catch (e) { setError(e instanceof Error ? e.message : "Please try again."); } finally { setBusy(false); }

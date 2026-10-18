@@ -1,13 +1,28 @@
 const http = require("node:http");
 const { spawn } = require("node:child_process");
+const fs = require("node:fs");
+const path = require("node:path");
 const metroPort = Number(process.env.METRO_PORT || 8081);
 const apiPort = Number(process.env.API_PORT || 3001);
+const demoPage = path.join(__dirname, "..", "app-demo.html");
 // Keep the Expo CLI/Metro app inside one web workflow, with a dependable
 // same-origin API proxy ahead of Expo's SPA history fallback.
 const expo = spawn(process.execPath, [
   require.resolve("expo/bin/cli"), "start", "--web", "--port", String(metroPort), "--host", "lan",
 ], { stdio: "inherit", env: { ...process.env, BROWSER: "none", EXPO_UNSTABLE_HEADLESS: "1", EXPO_NO_TELEMETRY: "1" } });
 const server = http.createServer((req, res) => {
+  if (new URL(req.url || "/", "http://localhost").pathname === "/app-demo.html") {
+    fs.readFile(demoPage, (error, content) => {
+      if (error) {
+        res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
+        res.end("The Tagalong demo page could not be loaded.");
+        return;
+      }
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+      res.end(content);
+    });
+    return;
+  }
   const api = req.url === "/api" || req.url.startsWith("/api/");
   const upstream = http.request({
     hostname: "127.0.0.1", port: api ? apiPort : metroPort, method: req.method, path: req.url,
