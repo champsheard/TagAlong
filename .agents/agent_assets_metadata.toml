@@ -1,0 +1,16 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "A99dbGXoh9wuyKcsN7RLy"
+uri = "file://accident-detected.html"
+type = "html"
+title = "Accident detected page"
+description = "A responsive, self-contained Tagalong alert page in the app’s cream, evergreen, and muted red palette."
+logical_id = "98752e05-2ef9-4aa5-87c6-fbe62b2cbfce"
+content_hash = "sha256:8f5972c4aaba768e1c8a1de09225c816172b127d04e79ee6879de2f9e75e2cb8"
+size = 8668
+mtime_ms = 1792305337574
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:0396a918-f035-4d19-81da-fa013554d0c7/98752e05-2ef9-4aa5-87c6-fbe62b2cbfce/9af0ea6b-590c-47d6-8062-4a053a9021a1"
+storage_version_token = "1792305363764987"
+content_type = "text/html"

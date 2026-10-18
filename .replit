@@ -99,3 +99,12 @@ VERIFICATION_EMAIL_FROM = "no-reply@updates.zymono.com"
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 180000
+
+[deployment]
+deploymentTarget = "cloudrun"
+
+[deployment.run]
+args = ["sh", "-c", "/nix/store/s97a21afj6aw098a25gs3j7ias7wzanm-nodejs-22.22.0-wrapped/bin/node $file"]
+
+[deployment.run.env]
+file = "index.js"
