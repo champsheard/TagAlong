@@ -83,5 +83,5 @@ app.use((error: unknown, _request: express.Request, response: express.Response, 
   if (error instanceof HttpError) { response.status(error.status).json({ error: error.message, code: error.code }); return; }
   if (error instanceof SyntaxError) { response.status(400).json({ error: "Invalid JSON request." }); return; }
   // Never log request bodies, query strings, tokens, or precise coordinates.
-  response.status(500).json({ error: "Safe Walk couldn't complete this request. Please retry." });
+  response.status(500).json({ error: "Tagalong couldn't complete this request. Please retry." });
 });

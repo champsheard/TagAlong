@@ -48,7 +48,7 @@ export function geocode(query: string, near?: unknown): Promise<Place[]> {
         url.searchParams.set("bounded", "0");
       }
       const response = await fetch(url, {
-        headers: { "User-Agent": process.env.APP_USER_AGENT ?? "SafeWalk/1.0 (privacy-focused trip route planner)", "Accept-Language": "en" },
+        headers: { "User-Agent": process.env.APP_USER_AGENT ?? "Tagalong/1.0 (privacy-focused trip route planner)", "Accept-Language": "en" },
         signal: AbortSignal.timeout(15000),
       });
       if (!response.ok) throw new Error("provider unavailable");

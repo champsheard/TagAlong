@@ -48,12 +48,12 @@ export default function NativeContacts() {
     setSharingId(key); setLinkNotice("");
     try {
       const url = tripLink(trip.shareCode);
-      const message = `Follow my Safe Walk trip: ${url}`;
+      const message = `Follow my Tagalong trip: ${url}`;
       if (phone && await SMS.isAvailableAsync()) {
         const result = await SMS.sendSMSAsync([phone], message);
         if (result.result === "cancelled") setLinkNotice("Message cancelled. The link wasn't sent.");
         else if (result.result === "sent") setLinkNotice("Your messaging app reports that the message was sent. Delivery isn't guaranteed.");
-        else setLinkNotice("Your messaging app opened. Safe Walk can't confirm whether the message was sent.");
+        else setLinkNotice("Your messaging app opened. Tagalong can't confirm whether the message was sent.");
       } else {
         const result = await Share.share({ message });
         setLinkNotice(result.action === Share.dismissedAction
@@ -70,7 +70,7 @@ export default function NativeContacts() {
   function removeEnrollment() {
     Alert.alert(
       "Remove this device?",
-      "This deletes matching identifiers, app inbox associations, and notification tokens from Safe Walk. Your phone's contacts are not deleted. Existing private trip links still work.",
+      "This deletes matching identifiers, app inbox associations, and notification tokens from Tagalong. Your phone's contacts are not deleted. Existing private trip links still work.",
       [
         { text: "Keep enrollment", style: "cancel" },
         { text: "Remove enrollment", style: "destructive", onPress: () => { void c.forget(); } },
@@ -94,8 +94,8 @@ export default function NativeContacts() {
           </Pressable>
         </View>
         <SectionTitle eyebrow="Optional app contacts" title="Share with a trusted person."
-          subtitle="Safe Walk is account-free. Matched, opted-in contacts can receive an in-app trip and live preview. Auto-share is on by default for enrolled devices; change it in Device settings." />
-        {c.loading ? <Text style={styles.small}>Loading Safe Walk contacts…</Text> : null}
+          subtitle="Tagalong is account-free. Matched, opted-in contacts can receive an in-app trip and live preview. Auto-share is on by default for enrolled devices; change it in Device settings." />
+        {c.loading ? <Text style={styles.small}>Loading Tagalong contacts…</Text> : null}
         {c.error ? <Notice tone="warning">{c.error}</Notice> : null}
         {c.notice ? <Notice>{c.notice}</Notice> : null}
         {c.refreshError ? <Notice tone="warning">Shared trips couldn't refresh. {c.refreshError}</Notice> : null}
@@ -117,7 +117,7 @@ export default function NativeContacts() {
 
         {!c.profile && !c.loading ? <View style={common.card}>
           <Eyebrow>Optional app matching</Eyebrow>
-          <Text style={styles.body}>To search for enrolled Safe Walk users, verify your own email once. This sends a code to you only; it does not email your contacts. Trip planning and private-link sharing stay account-free.</Text>
+          <Text style={styles.body}>To search for enrolled Tagalong users, verify your own email once. This sends a code to you only; it does not email your contacts. Trip planning and private-link sharing stay account-free.</Text>
           <ActionButton title="Enable app contact matching" onPress={c.enroll} loading={c.busy} style={{ marginTop: 10 }} />
         </View> : null}
 
@@ -148,8 +148,8 @@ export default function NativeContacts() {
 
         {verified ? <>
           <View style={common.card}>
-            <Eyebrow>Find opted-in Safe Walk users</Eyebrow>
-            <Text style={styles.body}>Names and raw contact details stay on this phone. Phone and email identifiers are normalized and hashed locally; only the hashes are sent to find verified, discoverable Safe Walk devices. When auto-share is on, this check runs again when each real trip starts.</Text>
+            <Eyebrow>Find opted-in Tagalong users</Eyebrow>
+            <Text style={styles.body}>Names and raw contact details stay on this phone. Phone and email identifiers are normalized and hashed locally; only the hashes are sent to find verified, discoverable Tagalong devices. When auto-share is on, this check runs again when each real trip starts.</Text>
             <Text style={styles.small}>Country for phone numbers without a + prefix:</Text>
             <TextInput accessibilityLabel="Contact phone-number country code" maxLength={2}
               autoCapitalize="characters" value={country} onChangeText={value => setCountry(value.toUpperCase())}
@@ -181,10 +181,10 @@ export default function NativeContacts() {
                   ? "On by default and currently on. If this device is verified and Contacts access is already granted, each real trip is added to every matched, opted-in contact's inbox. Turning this off affects future trips, not shares in progress."
                   : "Currently off. New trips are not automatically shared; turning it on applies to future trips only and does not change a share already in progress."}</Text>
               </View>
-              <Switch accessibilityLabel="Automatically share new trips with matched Safe Walk contacts"
+              <Switch accessibilityLabel="Automatically share new trips with matched Tagalong contacts"
                 value={c.profile.autoShare} disabled={c.busy} onValueChange={c.autoShare} />
             </View>
-            <Text style={styles.small}>Safe Walk checks locally hashed phone/email identifiers only when Contacts access is already granted; it will not ask for access at walk start. Names and raw contact details stay on this phone. Push notifications are best-effort. Contacts without an app match are not messaged automatically.</Text>
+            <Text style={styles.small}>Tagalong checks locally hashed phone/email identifiers only when Contacts access is already granted; it will not ask for access at trip start. Names and raw contact details stay on this phone. Push notifications are best-effort. Contacts without an app match are not messaged automatically.</Text>
             {verified ? <View style={styles.setting}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.name}>Discoverable to app contacts</Text>
@@ -215,8 +215,8 @@ function ContactRow({ contact, trip, busy, sharingId, onShareInApp, onShareLink 
     <View style={{ flex: 1, marginBottom: 6 }}>
       <Text style={styles.name}>{contact.name}</Text>
       <Text style={styles.small}>{matched
-        ? `On Safe Walk · ${contact.notificationsEnabled ? "notifications enabled" : "inbox only"}`
-        : contact.phoneNumbers?.length ? "No opted-in Safe Walk match · share a link" : "No match · share through another app"}</Text>
+        ? `On Tagalong · ${contact.notificationsEnabled ? "notifications enabled" : "inbox only"}`
+        : contact.phoneNumbers?.length ? "No opted-in Tagalong match · share a link" : "No match · share through another app"}</Text>
       {contact.phoneNumbers?.map((phone, index) => <Text key={`${phone.number}-${index}`} style={styles.small}>
         {phone.label} · {phone.number}
       </Text>)}
@@ -224,7 +224,7 @@ function ContactRow({ contact, trip, busy, sharingId, onShareInApp, onShareLink 
     </View>
     {trip ? matched
       ? <View style={styles.actions}>
-        <ActionButton title="Share in Safe Walk" secondary disabled={busy} onPress={onShareInApp} />
+        <ActionButton title="Share in Tagalong" secondary disabled={busy} onPress={onShareInApp} />
         <ActionButton title="Use a private link instead" secondary disabled={busy} onPress={() => onShareLink()} style={{ marginTop: 8 }} />
       </View>
       : contact.phoneNumbers?.length

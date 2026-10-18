@@ -326,7 +326,7 @@ export function Overhaul() {
             <Navigation size={18} strokeWidth={2.1} />
           </div>
           <div>
-            <div className="sw-overhaul__brand-name">Safe Walk</div>
+            <div className="sw-overhaul__brand-name">Tagalong</div>
             <span className="sw-overhaul__brand-kicker">A steadier way home</span>
           </div>
         </div>

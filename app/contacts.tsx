@@ -40,7 +40,7 @@ export default function Contacts() {
       {trip ? <View style={common.card}><Eyebrow>{`Your active ${trip.travelMode === "driving" ? "drive" : "walk"}`}</Eyebrow><Text style={s.body}>Choose an app contact below, or send the private link through your usual messaging app.</Text><ActionButton title="Share a link with anyone" secondary onPress={sendLink} style={{ marginTop: 12 }} /></View> : null}
       <View style={common.card}>
         <Eyebrow>Privacy and choice</Eyebrow>
-        <Text style={s.body}>Contact names stay on your phone. Phone numbers and emails are normalized and hashed on-device for matching. Safe Walk stores keyed matching hashes, not your address book.</Text>
+        <Text style={s.body}>Contact names stay on your phone. Phone numbers and emails are normalized and hashed on-device for matching. Tagalong stores keyed matching hashes, not your address book.</Text>
         <Text style={s.body}>To prove ownership, your own phone number or email is sent temporarily to the server and its verification provider. Other verified app users who have that identifier can discover your enrolled device.</Text>
         <Text style={s.body}>Contact sync is opt-in. You can hide or remove enrollment below. Trip planning and link tracking stay account-free.</Text>
         {!c.profile && !c.loading ? <ActionButton title="Enable optional app contacts" onPress={c.enroll} loading={c.busy} style={{ marginTop: 12 }} /> : null}
@@ -73,7 +73,7 @@ export default function Contacts() {
           <Eyebrow>{`Contacts · ${c.contacts.length}`}</Eyebrow>
           {c.contacts.length ? <TextInput accessibilityLabel="Search synced contact names" value={search} onChangeText={setSearch} placeholder="Search your contacts" placeholderTextColor={palette.muted} style={s.input} /> : <Text style={s.body}>Sync your phone's accessible contacts to see matches here.</Text>}
           {contacts.map(contact => <View key={contact.id} style={s.contact}>
-            <View style={{ flex: 1 }}><Text style={s.name}>{contact.name}</Text><Text style={s.small}>{contact.installationIds.length ? `On Safe Walk · ${contact.notificationsEnabled ? "notifications enabled" : "inbox only"}` : "Share a link · no enrolled mobile match"}</Text></View>
+            <View style={{ flex: 1 }}><Text style={s.name}>{contact.name}</Text><Text style={s.small}>{contact.installationIds.length ? `On Tagalong · ${contact.notificationsEnabled ? "notifications enabled" : "inbox only"}` : "Share a link · no enrolled mobile match"}</Text></View>
             {trip ? <ActionButton title={contact.installationIds.length ? "Share in app" : "Share link"} secondary disabled={c.busy} onPress={() => contact.installationIds.length ? c.share(trip, contact) : sendLink()} /> : null}
           </View>)}
         </View>

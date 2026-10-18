@@ -11,7 +11,7 @@ export async function enableDeviceNotifications() {
   if (!nativeBuild) throw new Error("App notifications need a native development or store build, not Expo Go.");
   const projectId = process.env.EXPO_PUBLIC_EAS_PROJECT_ID ?? Constants.easConfig?.projectId;
   if (!projectId) throw new Error("The native build needs its EAS project ID before push notifications can be enabled.");
-  if (Device.osName === "Android") await Notifications.setNotificationChannelAsync("walks", { name: "Safe Walk trips", importance: Notifications.AndroidImportance.HIGH });
+  if (Device.osName === "Android") await Notifications.setNotificationChannelAsync("walks", { name: "Tagalong trips", importance: Notifications.AndroidImportance.HIGH });
   const permission = await Notifications.requestPermissionsAsync();
   if (!permission.granted && permission.ios?.status !== Notifications.IosAuthorizationStatus.PROVISIONAL) throw new Error("Notifications are off. Enable them in phone settings, or share a link instead.");
   const session = await ensureInstallation();

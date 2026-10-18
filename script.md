@@ -1,4 +1,4 @@
-# Safe Walk — Congressional App Challenge
+# Tagalong — Congressional App Challenge
 
 ## Demonstration video script
 
@@ -13,13 +13,13 @@ contact list, private link, or write credential.
 
 ### 0:00–0:20 — Introductions and purpose
 
-**[Show the Safe Walk home screen.]**
+**[Show the Tagalong home screen.]**
 
 **[Participant 1]:** “Hi, I’m [name].”
 
 **[Participant 2, and each additional participant]:** “I’m [name].”
 
-**[Participant 1]:** “Our app is Safe Walk. Safe Walk helps people compare
+**[Participant 1]:** “Our app is Tagalong. Tagalong helps people compare
 walking routes using available lighting information and share an active trip
 with trusted contacts.”
 
@@ -27,7 +27,7 @@ with trusted contacts.”
 
 **[Show the map and Walk/Drive selector.]**
 
-**[Participant 2]:** “We designed Safe Walk for students, commuters, and anyone
+**[Participant 2]:** “We designed Tagalong for students, commuters, and anyone
 who wants an extra check-in while walking or driving. It can help someone make
 a more informed route choice and let people they trust follow the trip. It is
 an extra layer of support—not a guarantee of safety.”
@@ -38,7 +38,7 @@ an extra layer of support—not a guarantee of safety.”
 one. Use a real route for this demonstration, or keep the DEMO label visible
 if showing simulated data.]**
 
-**[Participant 1]:** “For a walk, Safe Walk compares the fastest route with an
+**[Participant 1]:** “For a walk, Tagalong compares the fastest route with an
 estimated best-lit route. The estimate uses available map data; it can be
 incomplete and does not promise that a street is safe or well lit right now.”
 
@@ -58,7 +58,7 @@ remote-stop disclosure. Do not stage a false live alert as a real event.]**
 **[Participant 1]:** “Drive mode provides route estimates and trip sharing; it
 is not turn-by-turn navigation. On a real drive, if reliable location stays
 within about 35 meters for 60 seconds and map data shows no mapped buildings
-or places within 250 meters, Safe Walk starts a 15-second cancel window. If it
+or places within 250 meters, Tagalong starts a 15-second cancel window. If it
 isn’t canceled, app contacts receiving that drive are warned while the trip
 stays active. This is a map-based remote-stop heuristic, not crash detection.”
 
@@ -66,14 +66,14 @@ stays active. This is a map-based remote-stop heuristic, not crash detection.”
 
 **[Show the app and, briefly, its tracking view.]**
 
-**[Participant 2]:** “We built Safe Walk with Expo and React Native, using
+**[Participant 2]:** “We built Tagalong with Expo and React Native, using
 TypeScript for the app and its Node.js and Express server, with SQLite for
 trip data. OpenRouteService provides route estimates, and OpenStreetMap data
 supports maps and lighting estimates.”
 
 **[Participant 1]:** “We’re developing a separate feature that would use
 vehicle sensors to detect possible car accidents. It is not in this version
-yet, so we are not presenting it as a working feature today. Safe Walk is
+yet, so we are not presenting it as a working feature today. Tagalong is
 designed to support check-ins and informed choices—not replace emergency
 services. Thank you for watching.”
 
@@ -82,10 +82,10 @@ services. Thank you for watching.”
 Personalize these answers so they reflect the team’s actual experience.
 
 1. **What is the title of your app?**  
-   Safe Walk.
+   Tagalong.
 
 2. **Explain the app’s purpose.**  
-   Safe Walk helps people compare walking routes using available lighting
+   Tagalong helps people compare walking routes using available lighting
    information and share an active trip with trusted contacts.
 
 3. **What inspired you to create it?**  

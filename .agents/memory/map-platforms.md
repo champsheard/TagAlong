@@ -1,5 +1,5 @@
 ---
-name: Safe Walk map providers
+name: Tagalong map providers
 description: Platform-specific basemap choice and matching attribution.
 ---
 

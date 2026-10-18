@@ -1,5 +1,5 @@
 ---
-name: Safe Walk runtime compatibility
+name: Tagalong runtime compatibility
 description: Non-obvious Expo Go peer compatibility, Expo single-output proxy behavior, and Node watch-mode env-file constraints.
 ---
 

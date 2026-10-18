@@ -1,6 +1,6 @@
-# Safe Walk
+# Tagalong
 
-Safe Walk compares **Fastest** and **Best lit** walking routes, then lets a trusted
+Tagalong compares **Fastest** and **Best lit** walking routes, then lets a trusted
 contact follow one private trip in a phone browser. The same Expo Router /
 React Native TypeScript screens run on web, iOS, and Android. Express and
 better-sqlite3 provide routing, lighting estimates, and time-limited trip storage.
@@ -22,9 +22,9 @@ processed transiently by the server and verification provider. No ads or analyti
 
 The project uses two workflows:
 
-- **Safe Walk Web** serves the Expo web preview and API proxy on port 5000
+- The **web workflow** serves the Expo web preview and API proxy on port 5000
   (Metro runs internally on 8081).
-- **Safe Walk API** runs the Express API on port 3001.
+- The **API workflow** runs the Express API on port 3001.
 
 The API health endpoint is `GET /api/health`.
 
@@ -74,7 +74,7 @@ matching index; arrange re-verification rather than silently losing matches.
    not `localhost` or the API's internal port.
 2. Start both workflows. Use `npx expo start --tunnel` when a phone cannot reach
    the development server over the local network; scan its QR code with Expo Go.
-3. Allow foreground location. Keep Safe Walk open and the screen awake during
+3. Allow foreground location. Keep Tagalong open and the screen awake during
    the trip. Background location is deliberately **not** requested or supported.
 
 Native maps use react-native-maps `UrlTile` with OpenStreetMap tiles; web uses

@@ -24,7 +24,7 @@ function parseOptions(args: string[]): Options {
   const options: Options = {
     send: false, confirmAllUsers: false, allowProduction: false, help: false,
     platform: "all",
-    title: "Safe Walk test notification",
+    title: "Tagalong test notification",
     body: "This is a test notification. No action is needed.",
   };
   for (let i = 0; i < args.length; i++) {

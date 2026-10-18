@@ -44,7 +44,7 @@ handled by Replit; never put credentials in the mobile bundle.
 After enrollment, **Sync my phone contacts** asks for contacts permission, reads
 only accessible contacts (including iOS limited access), matches in batches, and
 ranks mobile matches first. The sync limit is 5,000 accessible contacts. Non-app
-contacts use the ordinary system share sheet; Safe Walk does not claim to choose
+contacts use the ordinary system share sheet; Tagalong does not claim to choose
 the destination inside another app's share sheet.
 
 ## Native build and push
@@ -77,7 +77,7 @@ Recipients open a tracking map and explicitly choose the widget action.
   demo/help/arrival/older-location status and a deep link to the map. One selected
   activity is kept per device. Activity-specific push tokens are registered with
   the API; local updates work while the tracking screen is open.
-- **Android:** Selects the walk for the `SafeWalkTrackingWidget` home-screen
+- **Android:** Selects the trip for the `SafeWalkTrackingWidget` home-screen
   widget. The user adds that widget through the launcher. Background notification
   tasks and home-screen widget refreshes update the snapshot. The displayed
   last-fix time and snapshot label do not claim continuous live GPS.
@@ -96,7 +96,7 @@ once per minute, and ends them on arrival/help/expiry. The activity gets a
 two-minute stale deadline. Without APNs configuration, the UI explicitly warns
 that iOS background updates are unavailable. APNs is not a location source.
 
-The walker still needs Safe Walk open in the foreground. **No background walker
+The walker still needs Tagalong open in the foreground. **No background walker
 location permission has been added.** Widgets cannot make a stopped or missing
 GPS fix current. Help does not call emergency services; contact the walker
 directly and call emergency services yourself when needed.

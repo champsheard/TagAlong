@@ -110,8 +110,8 @@ export default function Index() {
     <MapContextPill label={mapContextLabel} top={insets.top + 76} tone={mapIsDemo ? "demo" : "default"} />
     <View style={[s.topBar, { paddingTop: insets.top + 8 }]}>
       <View style={s.brandGroup}>
-        <View style={s.brandMark}><View style={s.brandRing} /><Text style={s.brandMarkText}>SW</Text></View>
-        <View><Text style={s.brand}>Safe Walk</Text><Text style={s.tagline}>{walk.phase === "walking" ? walk.travelMode === "driving" ? "Your drive, on your terms" : "Your walk, on your terms" : "A steadier way home"}</Text></View>
+        <View style={s.brandMark}><View style={s.brandRing} /><Text style={s.brandMarkText}>T</Text></View>
+        <View><Text style={s.brand}>Tagalong</Text><Text style={s.tagline}>{walk.phase === "walking" ? walk.travelMode === "driving" ? "Your drive, on your terms" : "Your walk, on your terms" : "A steadier way home"}</Text></View>
       </View>
         <Pressable accessibilityRole="button" accessibilityLabel="Contacts" onPress={() => router.push("/contacts")} style={({ pressed }) => [s.contactsButton, pressed && s.pressed]}>
           <Text style={s.contactsGlyph}>+</Text><Text style={s.contactsLabel}>Contacts</Text>
@@ -259,7 +259,7 @@ export default function Index() {
               <View style={[s.switchTrack, walk.demo && s.switchOn]}><View style={[s.switchThumb, walk.demo && s.thumbOn]} /></View>
             </Pressable> : null}
              {walk.demo && !walk.result.demo ? <View style={{ marginTop: 10 }}><Notice tone="warning">Simulated movement follows this route for 90 seconds. It does not share a real location.</Notice></View> : null}
-             {walk.travelMode === "driving" && !walk.demo ? <View style={{ marginTop: 10 }}><Notice tone="warning">Remote-stop check: if live location stays within 35 m for 60 seconds and no mapped building or place is within 250 m, you’ll have 15 seconds to cancel before Safe Walk warns app contacts receiving this drive. Map data, GPS, and connection can limit detection. It does not contact emergency services.</Notice></View> : null}
+             {walk.travelMode === "driving" && !walk.demo ? <View style={{ marginTop: 10 }}><Notice tone="warning">Remote-stop check: if live location stays within 35 m for 60 seconds and no mapped building or place is within 250 m, you’ll have 15 seconds to cancel before Tagalong warns app contacts receiving this drive. Map data, GPS, and connection can limit detection. It does not contact emergency services.</Notice></View> : null}
             {walk.error ? <View style={{ marginTop: 10 }}><Notice tone="danger">{walk.error}</Notice></View> : null}
             <View style={s.buttonRow}>
                <ActionButton title={walk.travelMode === "driving" ? "Start drive" : "Start walk"} onPress={() => setShowStartConfirm(true)} disabled={!route} style={{ flex: 1 }} />
@@ -272,7 +272,7 @@ export default function Index() {
             <View style={s.walkStats}><View><Text style={s.statLarge}>{Math.max(0, Math.ceil((walk.trip.etaAt - walk.now) / 60000))}</Text><Text style={s.metricLabel}>MIN TO ARRIVE</Text></View><View style={s.metricDivider} /><View style={{ flex: 1 }}><Text numberOfLines={1} style={s.statRoute}>{walk.trip.route.label}</Text><Text style={s.metricLabel}>CHOSEN ROUTE</Text></View></View>
             {walk.demo ? <View style={{ marginTop: 12 }}><Notice tone="warning">Demo {walk.travelMode === "driving" ? "drive" : "walk"} · Location movement is simulated. Keep this screen open.</Notice></View> : null}
              {walk.travelMode === "driving" && walk.remoteStopAlertDueAt !== null ? <View style={{ marginTop: 12 }}>
-               <Notice tone="warning">No mapped buildings or places were found nearby after this stop. Safe Walk will warn app contacts receiving this drive in {Math.max(0, Math.ceil((walk.remoteStopAlertDueAt - walk.now) / 1000))} seconds.</Notice>
+               <Notice tone="warning">No mapped buildings or places were found nearby after this stop. Tagalong will warn app contacts receiving this drive in {Math.max(0, Math.ceil((walk.remoteStopAlertDueAt - walk.now) / 1000))} seconds.</Notice>
                <ActionButton title="Cancel remote-stop warning" secondary onPress={() => { void walk.cancelRemoteStopAlert(); }} style={{ marginTop: 8 }} />
              </View> : null}
              {walk.travelMode === "driving" && walk.remoteStopAlertAt !== null ? <View style={{ marginTop: 12 }}>
@@ -286,7 +286,7 @@ export default function Index() {
             {!!walk.notice ? <View style={{ marginTop: 12 }}><Notice>{walk.notice}</Notice></View> : null}
             <ActionButton title="I’ve arrived" onPress={() => setShowArrivalConfirm(true)} style={{ marginTop: 14 }} />
             <ActionButton title="Need help" onPress={() => setShowHelpConfirm(true)} danger secondary style={{ marginTop: 9 }} />
-            <Text style={s.centerNote}>Need urgent help? Call 911. Safe Walk does not contact emergency services.</Text>
+            <Text style={s.centerNote}>Need urgent help? Call 911. Tagalong does not contact emergency services.</Text>
             <View style={s.shareCard}>
               <Eyebrow>OTHER WAYS TO SHARE</Eyebrow>
               <ActionButton title="Share link" onPress={walk.shareTrip} style={{ marginTop: 8 }} />
@@ -299,7 +299,7 @@ export default function Index() {
             <SectionTitle eyebrow={walk.finishedStatus === "help" ? "Help status" : walk.finishedStatus === "expired" ? "Trip ended" : "Trip complete"}
               title={walk.finishedStatus === "help" ? walk.trip?.pendingEnd ? "Sending your help status…" : "Your trip is marked for help." : walk.finishedStatus === "expired" ? "This tracking link has expired." : "You made it."}
               subtitle={walk.finishedStatus === "help" ? "Anyone with the private trip link can view the help status. No emergency call is made." : walk.finishedStatus === "expired" ? "This trip is no longer sharing a live location." : "Location sharing has stopped for this trip."} />
-            {walk.finishedStatus === "help" ? <Notice tone="danger">If you are in immediate danger, call 911 now. Safe Walk cannot call for you.</Notice> : null}
+            {walk.finishedStatus === "help" ? <Notice tone="danger">If you are in immediate danger, call 911 now. Tagalong cannot call for you.</Notice> : null}
             {!!walk.sendError ? <View style={{ marginTop: 13 }}><Notice tone="warning">{walk.sendError}</Notice></View> : null}
             {walk.trip?.pendingEnd ? <Text style={s.centerNote}>Your contact’s status is waiting for a connection. Keep this screen open; we’ll retry automatically. Starting another trip is unavailable until it sends.</Text> : null}
             {walk.finishedStatus === "arrived" && !walk.demo && walk.travelMode === "walking" && !walk.trip?.pendingEnd ? <ArrivalFeedback streetNames={walk.selectedRoute?.streetNames ?? walk.trip?.route.streetNames ?? []} /> : null}
@@ -322,11 +322,11 @@ export default function Index() {
             <Text style={s.consentLine}>{Platform.OS === "web"
               ? "If you choose to share the private trip link, anyone holding it can see your live location until sharing ends. On the web, updates work only while this page stays open."
               : "On enrolled devices, Auto-share is on by default. If it is enabled, this device is verified, and Contacts access was already granted, this real trip is added to every matched app contact’s inbox at start. You can turn Auto-share off in Contacts before starting."}</Text>
-            {Platform.OS !== "web" ? <Text style={s.consentLine}>Safe Walk will not ask for Contacts access when a trip starts. If access is off, there is no automatic share. Contacts without an app match are not messaged. Push is best-effort; turning Auto-share off affects future trips only.</Text> : null}
+            {Platform.OS !== "web" ? <Text style={s.consentLine}>Tagalong will not ask for Contacts access when a trip starts. If access is off, there is no automatic share. Contacts without an app match are not messaged. Push is best-effort; turning Auto-share off affects future trips only.</Text> : null}
             {Platform.OS !== "web" ? <Text style={s.consentLine}>Anyone holding the private trip link can view it. Share it only with someone you trust.</Text> : null}
             {Platform.OS !== "web" ? <Text style={s.consentLine}>Sharing is active only while a real trip is active. After you allow background location once, real trips continue updating while the app is in the background. If permission is declined or unavailable, updates run only while the app is open. Android shows an ongoing location notification. Background location needs a development build; Expo Go does not support it on Android and supports it only in the iOS simulator.</Text> : null}
-            {walk.travelMode === "driving" ? <Text style={s.consentLine}>Driving routes and arrival times are estimates only. Safe Walk is not turn-by-turn navigation and does not monitor traffic or road closures.</Text> : null}
-            <Text style={s.consentLine}>Safe Walk is not a safety guarantee and does not replace calling 911 in an emergency.</Text>
+            {walk.travelMode === "driving" ? <Text style={s.consentLine}>Driving routes and arrival times are estimates only. Tagalong is not turn-by-turn navigation and does not monitor traffic or road closures.</Text> : null}
+            <Text style={s.consentLine}>Tagalong is not a safety guarantee and does not replace calling 911 in an emergency.</Text>
           </View>
           {walk.demo ? <View style={{ marginTop: 12 }}><Notice tone="warning">{walk.result?.demo ? "This is a simulated trip. The moving location and lighting scores are not real." : `Demo ${walk.travelMode === "driving" ? "drive" : "walk"} simulates your location along the chosen route. It does not share a real location.`}</Notice></View> : null}
           {walk.error ? <View style={{ marginTop: 12 }}><Notice tone="danger">{walk.error}</Notice></View> : null}

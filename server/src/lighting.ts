@@ -48,7 +48,7 @@ export async function loadLightingArea(routes: Geometry[]): Promise<LightingArea
     try {
       const response = await fetch("https://overpass-api.de/api/interpreter", {
         method: "POST", body: new URLSearchParams({ data: query }), signal: AbortSignal.timeout(25000),
-        headers: { "User-Agent": "SafeWalk/1.0" },
+        headers: { "User-Agent": "Tagalong/1.0" },
       });
       if (!response.ok) throw new Error("provider unavailable");
       const data = await response.json() as LightingArea & { remark?: string };

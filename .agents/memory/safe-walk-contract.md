@@ -1,6 +1,6 @@
 ---
-name: Safe Walk delivery and privacy
-description: User-defined milestone pauses and privacy boundaries for the Safe Walk product.
+name: Tagalong delivery and privacy
+description: User-defined milestone pauses and privacy boundaries for the Tagalong product.
 ---
 
 The user requires milestone delivery and a stop after each milestone so they can test before work proceeds.
@@ -20,10 +20,10 @@ storage or services. Do not turn optional contact enrollment into mandatory logi
 
 On 2026-10-06, the user selected automatic phone/email matching rather than
 private QR pairing. On 2026-10-09, they chose local matching against opted-in,
-verified, discoverable Safe Walk devices and email verification for the sender.
+verified, discoverable Tagalong devices and email verification for the sender.
 On 2026-10-10, they chose default-on automatic sharing to all such matches from
 the sender's device address book, with a user-accessible opt-out for future walks.
-This is not a broadcast to every Safe Walk installation. Safe Walk remains
+This is not a broadcast to every Tagalong installation. Tagalong remains
 account-free.
 
 **Why:** The user's latest choice supersedes the prior explicit-share-only rule,
@@ -69,7 +69,7 @@ Only small trip credentials may use after-first-unlock Keychain access, and only
 when background permission is granted.
 
 Before a walk, foreground location may center the map. An explicit nearby-place
-search may send the position to Safe Walk for in-memory result ranking; pass only
+search may send the position to Tagalong for in-memory result ranking; pass only
 a rounded neighborhood area to the public geocoder, and never log or persist the
 exact point. Contact location sharing still begins only with an active walk.
 
@@ -87,7 +87,7 @@ named streets in the selected route instead of requiring manual street entry,
 and warn that street names can reveal where someone walked. Ask for a 1–5 route
 rating first. “Plan another walk” must remain available without sending feedback.
 
-**Why:** The user chose anonymous feedback to Safe Walk with bounded retention,
+**Why:** The user chose anonymous feedback to Tagalong with bounded retention,
 wants less manual entry, and street-level reports can reveal sensitive location
 context.
 

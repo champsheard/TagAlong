@@ -1,5 +1,5 @@
 ---
-name: Safe Walk provider constraints
+name: Tagalong provider constraints
 description: Public Nominatim usage boundaries and least-privilege email-provider setup.
 ---
 

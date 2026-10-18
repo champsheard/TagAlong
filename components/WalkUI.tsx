@@ -2,9 +2,9 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View, type ViewStyle } 
 import type { ReactNode } from "react";
 import { palette } from "../constants/theme";
 
-export function BrandHeader({ label = "Safe Walk" }: { label?: string }) {
+export function BrandHeader({ label = "Tagalong" }: { label?: string }) {
   return <View style={s.header}>
-    <View style={s.mark}><View style={s.markRing} /><Text style={s.markText}>SW</Text></View>
+    <View style={s.mark}><View style={s.markRing} /><Text style={s.markText}>T</Text></View>
     <View style={s.headerCopy}><Text style={s.brand}>{label}</Text><Text style={s.tagline}>A steadier way home</Text></View>
   </View>;
 }

@@ -15,7 +15,7 @@ const server = http.createServer((req, res) => {
   }, response => { res.writeHead(response.statusCode, response.headers); response.pipe(res); });
   upstream.on("error", () => {
     if (!res.headersSent) res.writeHead(503, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: api ? "The Safe Walk API is unavailable. Please retry shortly." : "Expo is starting. Please reload in a moment." }));
+    res.end(JSON.stringify({ error: api ? "The Tagalong API is unavailable. Please retry shortly." : "Expo is starting. Please reload in a moment." }));
   });
   req.on("aborted", () => upstream.destroy());
   req.pipe(upstream);
@@ -36,7 +36,7 @@ server.on("upgrade", (req, socket, head) => {
   upstream.on("error", () => socket.destroy());
   upstream.end();
 });
-server.listen(5000, "0.0.0.0", () => console.log("Safe Walk web/API proxy listening on 0.0.0.0:5000"));
+server.listen(5000, "0.0.0.0", () => console.log("Tagalong web/API proxy listening on 0.0.0.0:5000"));
 for (const signal of ["SIGTERM", "SIGINT"]) process.on(signal, () => { expo.kill(signal); server.close(); });
 expo.on("error", () => process.exit(1));
 expo.on("exit", code => { server.close(); process.exit(code ?? 0); });

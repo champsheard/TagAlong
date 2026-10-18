@@ -7,7 +7,7 @@ function TrackingWidget({ state }: { state: WidgetState | null }) {
   const status = !state ? "No trip selected" : expired ? "Tracking expired" : state.status === "help" ? "Help requested" : state.status === "arrived" ? "Arrived" : stale ? "Older location — open map" : state.travelMode === "driving" ? "Driving · snapshot" : "Walking · snapshot";
   return <FlexWidget style={{ width: "match_parent", height: "match_parent", backgroundColor: "#F6F3EA", borderRadius: 20, padding: 16, flexGap: 8 }}
     clickAction={state && !expired ? "OPEN_URI" : "OPEN_APP"} clickActionData={state && !expired ? { uri: `safewalk://track/${state.shareCode}` } : undefined}>
-    <TextWidget text={`Safe Walk${state?.demo ? " · DEMO" : ""}`} style={{ fontSize: 14, color: "#244335", fontWeight: "bold" }} />
+    <TextWidget text={`Tagalong${state?.demo ? " · DEMO" : ""}`} style={{ fontSize: 14, color: "#244335", fontWeight: "bold" }} />
     <TextWidget text={status} style={{ fontSize: 20, color: state?.status === "help" ? "#9E3835" : "#244335", fontWeight: "bold" }} />
     <TextWidget text={state && !expired ? state.status === "active" ? `ETA ${new Date(state.etaAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · Last fix ${state.lastUpdateAt ? new Date(state.lastUpdateAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "not received"}. Tap for latest.`
       : state.status === "help" ? "Contact your person. No emergency call was made." : "Location sharing stopped" : "Open a tracking link to select a trip."} style={{ fontSize: 12, color: "#617066" }} />
@@ -19,7 +19,7 @@ export async function startTrackingWidget(state: WidgetState) {
   let found = true;
   await requestWidgetUpdate({ widgetName: "SafeWalkTrackingWidget", renderWidget: () => <TrackingWidget state={state} />, widgetNotFound: () => { found = false; } });
   return found ? "Tracking widget updated. Background refresh depends on notification delivery; tap it to check the map."
-    : "Trip selected. Add the Safe Walk widget using your Android home screen's Widgets menu.";
+    : "Trip selected. Add the Tagalong widget using your Android home screen's Widgets menu.";
 }
 export async function updateTrackingWidget(state: WidgetState) {
   const saved = await readWidgetState();

@@ -94,7 +94,7 @@ async function loadMappedPlaces(point: Point): Promise<OsmPlaces | null> {
         method: "POST",
         body: new URLSearchParams({ data: query }),
         signal: AbortSignal.timeout(12_000),
-        headers: { "User-Agent": "SafeWalk/1.0 (remote stop check)" },
+        headers: { "User-Agent": "Tagalong/1.0 (remote stop check)" },
       });
       if (!response.ok) throw new Error("Map data unavailable");
       const data = await response.json() as OsmPlaces & { remark?: string };

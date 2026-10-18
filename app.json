@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Safe Walk",
+    "name": "Tagalong",
     "slug": "safe-walk",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -27,18 +27,18 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Safe Walk uses your location to plan your route and share your live location during an active walk.",
-          "locationAlwaysAndWhenInUsePermission": "Allow Safe Walk to keep sharing your location in the background while an active walk is underway.",
+          "locationWhenInUsePermission": "Tagalong uses your location to plan your route and share your live location during an active trip.",
+          "locationAlwaysAndWhenInUsePermission": "Allow Tagalong to keep sharing your location in the background while an active trip is underway.",
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
         }
       ],
       "expo-secure-store",
-      ["expo-contacts", { "contactsPermission": "Safe Walk keeps contact names and raw details on this device. It sends locally hashed phone and email identifiers only to find opted-in Safe Walk users." }],
+      ["expo-contacts", { "contactsPermission": "Tagalong keeps contact names and raw details on this device. It sends locally hashed phone and email identifiers only to find opted-in Tagalong users." }],
       ["expo-notifications", { "enableBackgroundRemoteNotifications": true }],
       ["expo-widgets", { "enablePushNotifications": true, "frequentUpdates": true, "widgets": [] }],
-      ["react-native-android-widget", { "widgets": [{ "name": "SafeWalkTrackingWidget", "label": "Safe Walk tracking", "description": "Track a shared walk and open its map.", "minWidth": "250dp", "minHeight": "110dp", "targetCellWidth": 4, "targetCellHeight": 2, "resizeMode": "horizontal|vertical", "updatePeriodMillis": 1800000 }] }]
+      ["react-native-android-widget", { "widgets": [{ "name": "SafeWalkTrackingWidget", "label": "Tagalong tracking", "description": "Track a shared trip and open its map.", "minWidth": "250dp", "minHeight": "110dp", "targetCellWidth": 4, "targetCellHeight": 2, "resizeMode": "horizontal|vertical", "updatePeriodMillis": 1800000 }] }]
     ],
     "experiments": {
       "typedRoutes": true

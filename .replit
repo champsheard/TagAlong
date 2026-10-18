@@ -14,18 +14,18 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Safe Walk Web"
+args = "Tagalong Web"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Safe Walk API"
+args = "Tagalong API"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
 args = "Expo Go"
 
 [[workflows.workflow]]
-name = "Safe Walk Web"
+name = "Tagalong Web"
 author = "agent"
 
 [[workflows.workflow.tasks]]
@@ -37,7 +37,7 @@ waitForPort = 5000
 outputType = "webview"
 
 [[workflows.workflow]]
-name = "Safe Walk API"
+name = "Tagalong API"
 author = "agent"
 
 [[workflows.workflow.tasks]]

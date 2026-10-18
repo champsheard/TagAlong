@@ -45,14 +45,14 @@ async function send(kind: IdentifierKind, destination: string, code: string) {
     const sender = await smsSender();
     const response = await connectors.proxy("twilio", `/2010-04-01/Accounts/${sender.account}/Messages.json`, {
       method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ To: destination, From: sender.from, Body: `Your Safe Walk verification code is ${code}. It expires in 10 minutes. Do not share this code.` }),
+      body: new URLSearchParams({ To: destination, From: sender.from, Body: `Your Tagalong verification code is ${code}. It expires in 10 minutes. Do not share this code.` }),
     });
     if (!response.ok) throw new HttpError(503, "Twilio could not send this code. Check the sender, recipient eligibility, and account balance.");
   } else {
     if (!available.email) throw new HttpError(503, "Email verification needs Resend and a verified VERIFICATION_EMAIL_FROM sender. Link sharing still works.");
     const response = await connectors.proxy("resend", "/emails", {
       method: "POST", body: { from: process.env.VERIFICATION_EMAIL_FROM, to: [destination],
-        subject: "Your Safe Walk verification code", text: `Your Safe Walk code is ${code}. It expires in 10 minutes. Do not share it. If you didn't request this code, you can ignore this message.` },
+        subject: "Your Tagalong verification code", text: `Your Tagalong code is ${code}. It expires in 10 minutes. Do not share it. If you didn't request this code, you can ignore this message.` },
     });
     if (!response.ok) throw new HttpError(503, "Resend could not send this code. Check the verified sender and email integration.");
   }

@@ -22,7 +22,7 @@ export async function pushLiveActivity(token: string, event: "start" | "update" 
   };
   if (event === "start") {
     aps["attributes-type"] = "LiveActivityAttributes"; aps.attributes = { url: `safewalk://track/${state.shareCode}` };
-    aps.alert = { title: "Safe Walk tracking", body: "A contact shared a walk with you." };
+    aps.alert = { title: "Tagalong tracking", body: "A contact shared a trip with you." };
     aps["input-push-token"] = 1;
   } else if (event === "end") aps["dismissal-date"] = now + 900;
   return new Promise<boolean>((resolve, reject) => {

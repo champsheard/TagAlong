@@ -11,5 +11,5 @@ startNotificationWorker();
 startDriveStopMonitor();
 
 app.listen(port, "0.0.0.0", () => {
-  console.log(`Safe Walk API listening on 0.0.0.0:${port}`);
+  console.log(`Tagalong API listening on 0.0.0.0:${port}`);
 });

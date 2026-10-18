@@ -46,27 +46,27 @@ export default function TrackTrip() {
   }, [data?.route]);
   const panelHeight = height * 0.49;
 
-  if (!code) return <View style={common.page}><ScrollView contentContainerStyle={common.content}><BackToSafeWalk onPress={leaveLiveView} /><BrandHeader /><Notice tone="warning">This tracking link is incomplete. Ask your contact to send you the full link.</Notice></ScrollView></View>;
+  if (!code) return <View style={common.page}><ScrollView contentContainerStyle={common.content}><BackToTagalong onPress={leaveLiveView} /><BrandHeader /><Notice tone="warning">This tracking link is incomplete. Ask your contact to send you the full link.</Notice></ScrollView></View>;
 
   if (tracking.expired) return <View style={common.page}><ScrollView contentContainerStyle={common.content}>
-    <BackToSafeWalk onPress={leaveLiveView} />
+    <BackToTagalong onPress={leaveLiveView} />
     <BrandHeader />
     <View style={s.expiredMark}><Text style={s.expiredMarkText}>—</Text></View>
     <SectionTitle eyebrow="Private trip link" title="This link is no longer active." subtitle="The trip may have ended, or this private link may be invalid. Ask the person to share a current link." />
-    <View style={s.privacy}><Text style={s.privacyTitle}>Your privacy matters</Text><Text style={s.copy}>Safe Walk only shows a live trip while sharing is active. There is no account or sign-in for a contact to use this page.</Text></View>
+    <View style={s.privacy}><Text style={s.privacyTitle}>Your privacy matters</Text><Text style={s.copy}>Tagalong only shows a live trip while sharing is active. There is no account or sign-in for a contact to use this page.</Text></View>
   </ScrollView></View>;
 
   if (!data && tracking.loading) return <View style={[common.page, s.center]}>
     <View style={{ width: "100%", maxWidth: 580 }}>
-      <BackToSafeWalk onPress={leaveLiveView} />
+      <BackToTagalong onPress={leaveLiveView} />
       <View style={s.skeleton}><View style={s.skeletonLine} /><View style={[s.skeletonLine, { width: "60%" }]} /><View style={s.skeletonMap} /></View>
       <Text style={s.loading}>Opening the private trip link…</Text>
     </View>
   </View>;
-  if (!data) return <View style={common.page}><ScrollView contentContainerStyle={common.content}><BackToSafeWalk onPress={leaveLiveView} /><BrandHeader />
+  if (!data) return <View style={common.page}><ScrollView contentContainerStyle={common.content}><BackToTagalong onPress={leaveLiveView} /><BrandHeader />
     <SectionTitle eyebrow="Private trip link" title="We can’t reach this trip yet." subtitle="Check your connection. This page will keep trying to refresh automatically." />
     {tracking.error ? <Notice tone="warning">{tracking.error}</Notice> : null}
-    <View style={{ marginTop: 15 }}><Notice>Location appears only while the person has sharing active and Safe Walk open in the foreground.</Notice></View>
+    <View style={{ marginTop: 15 }}><Notice>Location appears only while the person has sharing active and Tagalong open in the foreground.</Notice></View>
   </ScrollView></View>;
 
   const waitingTooLong = data.status === "active" && tracking.now - (data.lastUpdateAt ?? data.startedAt) >= 120000;
@@ -87,7 +87,7 @@ export default function TrackTrip() {
         attributionBottom={panelHeight + 7} />
     </View>
     <View style={[s.topBar, { paddingTop: insets.top + 9 }]}>
-      <View style={s.brandPill}><View style={s.brandDot} /><Text style={s.brandName}>SAFE WALK</Text><Text style={s.topDivider}>/</Text><Text style={s.topLabel}>PRIVATE TRIP</Text></View>
+      <View style={s.brandPill}><View style={s.brandDot} /><Text style={s.brandName}>TAGALONG</Text><Text style={s.topDivider}>/</Text><Text style={s.topLabel}>PRIVATE TRIP</Text></View>
       <View style={[s.liveBadge, data.status === "help" && s.helpBadge, data.status === "arrived" && s.arrivedBadge]}>
         <View style={[s.statusDot, data.status === "help" ? s.helpDot : data.status === "arrived" ? s.arrivedDot : waitingTooLong ? s.staleDot : null]} />
         <Text style={s.liveBadgeText}>{data.status === "active" ? waitingTooLong ? "OLDER UPDATE" : "LIVE" : data.status === "help" ? "HELP" : "ENDED"}</Text>
@@ -98,7 +98,7 @@ export default function TrackTrip() {
       <View style={[s.panel, { height: panelHeight, paddingBottom: Math.max(insets.bottom, 12) }]}>
         <View style={s.grabber} />
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.panelContent}>
-          <BackToSafeWalk onPress={leaveLiveView} />
+          <BackToTagalong onPress={leaveLiveView} />
           {data.status === "help" ? <Notice tone="danger">Your contact flagged that they need help. This page does not call emergency services. If you believe someone is in immediate danger, contact 911.</Notice> :
             data.status === "arrived" ? <Notice>The trip has ended. Live location sharing is stopped.</Notice> :
               waitingTooLong ? <Notice tone="warning">No location update for {elapsed(tracking.now - (data.lastUpdateAt ?? data.startedAt))}. This may be an older location; try contacting your {personKind} directly.</Notice> :
@@ -128,8 +128,8 @@ export default function TrackTrip() {
           <TrackingWidgetAction code={code} data={data} />
           <View style={s.infoCard}>
             <Text style={s.infoTitle}>A note for trusted contacts</Text>
-            <Text style={s.copy}>Location updates are shared while the trip is active and location sharing is available. A missing or older update does not tell you why. Safe Walk is not a safety guarantee.</Text>
-            {data.status === "help" ? <Text style={[s.copy, { color: palette.red, fontWeight: "800", marginTop: 9 }]}>Safe Walk does not call 911. Call emergency services yourself if needed.</Text> : null}
+            <Text style={s.copy}>Location updates are shared while the trip is active and location sharing is available. A missing or older update does not tell you why. Tagalong is not a safety guarantee.</Text>
+            {data.status === "help" ? <Text style={[s.copy, { color: palette.red, fontWeight: "800", marginTop: 9 }]}>Tagalong does not call 911. Call emergency services yourself if needed.</Text> : null}
           </View>
           <Text style={s.footer}>This private link can be viewed by anyone who has it.</Text>
         </ScrollView>
@@ -138,10 +138,10 @@ export default function TrackTrip() {
   </View>;
 }
 
-function BackToSafeWalk({ onPress }: { onPress: () => void }) {
-  return <Pressable accessibilityRole="button" accessibilityLabel="Back to Safe Walk"
+function BackToTagalong({ onPress }: { onPress: () => void }) {
+  return <Pressable accessibilityRole="button" accessibilityLabel="Back to Tagalong"
     onPress={onPress} style={s.exitButton}>
-    <Text style={s.exitText}>‹  Back to Safe Walk</Text>
+    <Text style={s.exitText}>‹  Back to Tagalong</Text>
   </Pressable>;
 }
 

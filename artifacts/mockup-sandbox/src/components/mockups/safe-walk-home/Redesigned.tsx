@@ -69,9 +69,9 @@ export function Redesigned() {
 
       <header className="sw-topbar">
         <div className="sw-brand">
-          <div className="sw-mark" aria-hidden="true"><span>SW</span></div>
+          <div className="sw-mark" aria-hidden="true"><span>T</span></div>
           <div className="sw-brand-copy">
-            <strong>Safe Walk</strong>
+            <strong>Tagalong</strong>
             <span>A steadier way home</span>
           </div>
         </div>

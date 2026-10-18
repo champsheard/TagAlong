@@ -1,6 +1,6 @@
-- [Safe Walk delivery and privacy](safe-walk-contract.md) — milestone pauses, private links, verified local contact matching, and default-on auto-sharing with a future-walk opt-out.
-- [Safe Walk canvas targeting](safe-walk-canvas-scope.md) — apply visual edits to the selected home or map frame, not a neighboring prototype.
-- [Safe Walk map providers](map-platforms.md) — use native Apple Maps on iOS; reserve OSM tiles and attribution for platforms displaying them.
+- [Tagalong delivery and privacy](safe-walk-contract.md) — milestone pauses, private links, verified local contact matching, and default-on auto-sharing with a future-walk opt-out.
+- [Tagalong canvas targeting](safe-walk-canvas-scope.md) — apply visual edits to the selected home or map frame, not a neighboring prototype.
+- [Tagalong map providers](map-platforms.md) — use native Apple Maps on iOS; reserve OSM tiles and attribution for platforms displaying them.
 - [Provider constraints](provider-constraints.md) — Nominatim requires deliberate search; OSM tile probes need identifying headers.
 - [Runtime compatibility](runtime-compatibility.md) — Expo Go peer versions and development middleware/watch behavior need explicit compatibility checks.
-- [Safe Walk driving](safe-walk-driving.md) — driving uses route estimates and live sharing, not navigation; preserve the 300 km cap and six-hour privacy window unless revisited.
+- [Tagalong driving](safe-walk-driving.md) — driving uses route estimates and live sharing, not navigation; preserve the 300 km cap and six-hour privacy window unless revisited.

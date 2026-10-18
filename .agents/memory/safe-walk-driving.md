@@ -1,11 +1,11 @@
 ---
-name: Safe Walk driving support
-description: Driving route and live-sharing limits chosen for the current Safe Walk milestone.
+name: Tagalong driving support
+description: Driving route and live-sharing limits chosen for Tagalong.
 ---
 
 Driving routes use the car-routing profile and may be up to 300 km. The route ETA is capped at five hours so the existing six-hour active-trip expiry leaves time for the trip to complete. The six-hour sharing lifetime is unchanged.
 
-Real, non-demo drives also use an isolated-stop warning: after the device remains within 35 m for 60 seconds and mapped buildings or places are absent within 250 m, Safe Walk gives the driver 15 seconds to cancel, then queues a warning to app contacts receiving the drive. The trip remains active and location sharing continues. Map, GPS, network, and notification availability limit reliability; this is not an emergency service.
+Real, non-demo drives also use an isolated-stop warning: after the device remains within 35 m for 60 seconds and mapped buildings or places are absent within 250 m, Tagalong gives the driver 15 seconds to cancel, then queues a warning to app contacts receiving the drive. The trip remains active and location sharing continues. Map, GPS, network, and notification availability limit reliability; this is not an emergency service.
 
 **Why:** The user requested driving routes with a much longer limit for live safety tracking and a warning for a possible carjacking; they chose a 15-second cancel window. The thresholds are explicit heuristics, not a guarantee that an area is actually remote.
 

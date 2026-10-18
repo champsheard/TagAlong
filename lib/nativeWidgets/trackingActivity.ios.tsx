@@ -14,12 +14,12 @@ function TrackingActivity(props: WidgetState, environment: LiveActivityEnvironme
   const eta = new Date(props.etaAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   return {
     banner: <VStack alignment="leading" spacing={6} modifiers={[padding({ all: 16 })]}>
-      <HStack spacing={12}><Text modifiers={[font({ size: 15, weight: "bold" }), foregroundStyle(color)]}>Safe Walk{props.demo ? " · DEMO" : ""}</Text><Text>{status}</Text></HStack>
+      <HStack spacing={12}><Text modifiers={[font({ size: 15, weight: "bold" }), foregroundStyle(color)]}>Tagalong{props.demo ? " · DEMO" : ""}</Text><Text>{status}</Text></HStack>
       <Text modifiers={[font({ size: 19, weight: "semibold" })]}>{props.status === "active" ? `ETA ${eta}` : status}</Text>
       <Text modifiers={[font({ size: 12 })]}>{props.status === "help" ? "Contact your person. No emergency call was made." : old ? "Open the map to check the last shared location." : "Tap to open the tracking map."}</Text>
     </VStack>,
-    compactLeading: <Text>SW</Text>, compactTrailing: <Text>{props.status === "help" ? "!" : props.status === "arrived" ? "✓" : old ? "—" : eta}</Text>,
-    minimal: <Text>{props.status === "help" ? "!" : "SW"}</Text>,
+    compactLeading: <Text>T</Text>, compactTrailing: <Text>{props.status === "help" ? "!" : props.status === "arrived" ? "✓" : old ? "—" : eta}</Text>,
+    minimal: <Text>{props.status === "help" ? "!" : "T"}</Text>,
     expandedCenter: <VStack><Text>{status}</Text><Text>{props.status === "active" ? `ETA ${eta}` : "Location sharing stopped"}</Text></VStack>,
   };
 }

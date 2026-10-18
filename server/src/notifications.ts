@@ -76,9 +76,9 @@ export function scheduleTripUpdate(tripId: string, event: "refresh" | "arrived" 
 export const notificationTransport = {
   async expo(token: string, state: WidgetState, event: string) {
     const visible = event !== "refresh";
-    const title = event === "remote-stop" ? "Safe Walk: remote stop warning"
-      : state.status === "help" ? "Safe Walk: help requested"
-        : state.status === "arrived" ? "Safe Walk: contact arrived" : "A contact shared a Safe Walk";
+    const title = event === "remote-stop" ? "Tagalong: remote stop warning"
+      : state.status === "help" ? "Tagalong: help requested"
+        : state.status === "arrived" ? "Tagalong: contact arrived" : "A contact shared a Tagalong trip";
     const body = event === "remote-stop"
       ? "Your contact's drive appears stopped in a remote area. Please check in with them."
       : state.status === "help"

@@ -34,7 +34,7 @@ async function syncRemoteStopNotification(trip: Awaited<ReturnType<typeof readTr
   try {
     const notificationId = await Notifications.scheduleNotificationAsync({
       content: {
-        title: "Safe Walk remote-stop warning",
+        title: "Tagalong remote-stop warning",
         body: "If app contacts are receiving this drive, they’ll be warned soon. Tap “Cancel warning” if this stop is expected.",
         categoryIdentifier: stopAlertCategory,
         sound: "default",
@@ -105,7 +105,7 @@ export async function startBackgroundLocationUpdates(): Promise<boolean> {
     showsBackgroundLocationIndicator: true,
     ...(Platform.OS === "android" ? {
       foregroundService: {
-        notificationTitle: "Safe Walk is sharing your trip",
+        notificationTitle: "Tagalong is sharing your trip",
         notificationBody: "Location updates are active until you end this trip.",
         killServiceOnDestroy: true,
       },

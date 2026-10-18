@@ -20,7 +20,7 @@ async function request<T>(path: string, method = "GET", body?: unknown, token?: 
       signal: controller.signal,
     });
   } catch {
-    throw new ApiError("Couldn't reach Safe Walk. Check your connection and try again.", 0);
+    throw new ApiError("Couldn't reach Tagalong. Check your connection and try again.", 0);
   } finally {
     clearTimeout(timeout);
   }
@@ -70,11 +70,11 @@ export function tripLink(code: string) {
 export async function shareTripLink(code: string): Promise<string> {
   const url = tripLink(code);
   if (Platform.OS !== "web") {
-    await Share.share({ message: `Follow my trip with Safe Walk: ${url}`, url });
+    await Share.share({ message: `Follow my trip with Tagalong: ${url}`, url });
     return "Share the private link with one trusted contact.";
   }
   if (navigator.share) {
-    try { await navigator.share({ title: "Follow my Safe Walk trip", text: "Follow my trip live.", url }); return "Share the private link with one trusted contact."; }
+    try { await navigator.share({ title: "Follow my Tagalong trip", text: "Follow my trip live.", url }); return "Share the private link with one trusted contact."; }
     catch (error) { if ((error as Error).name === "AbortError") return "Sharing cancelled. You can share the link again."; }
   }
   try { await navigator.clipboard.writeText(url); return "Private tracking link copied. Send it to one trusted contact."; }

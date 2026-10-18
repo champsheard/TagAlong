@@ -75,7 +75,7 @@ export function useContacts() {
   const autoShare = (enabled: boolean) => perform(async () => {
     setProfile(await api.updateProfile(await ensureInstallation(), { autoShare: enabled }));
     setNotice(enabled
-      ? "Automatic sharing is on. New real trips will be added to all matched, opted-in Safe Walk inboxes."
+      ? "Automatic sharing is on. New real trips will be added to all matched, opted-in Tagalong inboxes."
       : "Automatic sharing is off. New trips won't be sent to app contacts unless you share them manually.");
   });
   const notifications = () => perform(async () => { setProfile(await enableDeviceNotifications()); setNotice("App notifications enabled on this device."); });
@@ -90,7 +90,7 @@ export function useContacts() {
     await saveInstallation(null); await clearContactCountry().catch(() => {});
     setProfile(null); setContacts([]); setInbox([]); setChallenge(null); setRefreshError("");
     await clearTrackingWidget();
-    setNotice("Device enrollment, matching identifiers, and notification tokens removed from Safe Walk.");
+    setNotice("Device enrollment, matching identifiers, and notification tokens removed from Tagalong.");
   });
   const share = (trip: TripCredentials, contact: DeviceContact) => perform(async () => {
     const result = await api.shareToContact(await ensureInstallation(), trip, contact.installationIds);

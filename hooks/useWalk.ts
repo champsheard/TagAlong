@@ -103,7 +103,7 @@ export function useWalk() {
             } catch {}
             if (mounted) {
               setBackgroundEnabled(enabled);
-              setBackgroundNotice(enabled ? "" : `Background location isn't active. This ${tripNoun(mode)} updates only while Safe Walk is open.`);
+              setBackgroundNotice(enabled ? "" : `Background location isn't active. This ${tripNoun(mode)} updates only while Tagalong is open.`);
             }
           }
         }
@@ -132,17 +132,17 @@ export function useWalk() {
             await stopBackgroundLocationUpdates();
             if (alive) {
               setBackgroundEnabled(false);
-              setBackgroundNotice(`Background location couldn't securely resume. This ${tripNoun(trip.travelMode)} updates only while Safe Walk is open.`);
+              setBackgroundNotice(`Background location couldn't securely resume. This ${tripNoun(trip.travelMode)} updates only while Tagalong is open.`);
             }
             return;
           }
         }
         setBackgroundEnabled(enabled);
-        setBackgroundNotice(enabled ? "" : `Background location isn't active. This ${tripNoun(trip.travelMode)} updates only while Safe Walk is open.`);
+        setBackgroundNotice(enabled ? "" : `Background location isn't active. This ${tripNoun(trip.travelMode)} updates only while Tagalong is open.`);
       } catch {
         if (alive) {
           setBackgroundEnabled(false);
-          setBackgroundNotice(`Background location couldn't resume. This ${tripNoun(trip.travelMode)} updates only while Safe Walk is open.`);
+          setBackgroundNotice(`Background location couldn't resume. This ${tripNoun(trip.travelMode)} updates only while Tagalong is open.`);
         }
       }
     })();
@@ -193,7 +193,7 @@ export function useWalk() {
           // GPS coordinate with a new timestamp and make it appear live.
           const fix = await Promise.race([
             Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }),
-            new Promise<never>((_, reject) => setTimeout(() => reject(new Error("A fresh location is unavailable. Keep Safe Walk open and check location permissions.")), 15000)),
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error("A fresh location is unavailable. Keep Tagalong open and check location permissions.")), 15000)),
           ]);
           if (!alive || stopping.current) return;
           const p = { lat: fix.coords.latitude, lng: fix.coords.longitude, accuracy: fix.coords.accuracy, timestamp: fix.timestamp };
@@ -294,10 +294,10 @@ export function useWalk() {
         }
         setBackgroundEnabled(enabled);
         setBackgroundNotice(enabled ? "" : backgroundPermission === "denied"
-          ? `Background location wasn't allowed. This ${tripNoun(travelMode)} updates only while Safe Walk is open; allow Always or Allow all the time in Settings to resume background updates.`
+          ? `Background location wasn't allowed. This ${tripNoun(travelMode)} updates only while Tagalong is open; allow Always or Allow all the time in Settings to resume background updates.`
           : backgroundPermission === "unavailable"
-            ? `Background location isn't available in this app build. This ${tripNoun(travelMode)} updates only while Safe Walk is open.`
-            : `Background location couldn't start. This ${tripNoun(travelMode)} updates only while Safe Walk is open.`);
+            ? `Background location isn't available in this app build. This ${tripNoun(travelMode)} updates only while Tagalong is open.`
+            : `Background location couldn't start. This ${tripNoun(travelMode)} updates only while Tagalong is open.`);
       }
       try {
         const response = await api.location(next, p);
@@ -313,7 +313,7 @@ export function useWalk() {
         const result = await autoShareTrip(credentials(next), () => autoShareAttempt.current === shareAttempt && !stopping.current);
         if (result.status === "cancelled") return;
         if (result.status === "shared") {
-          showAutoShareNotice(`Trip started. Automatically shared with ${result.sharedCount} matched Safe Walk device${result.sharedCount === 1 ? "" : "s"}.${result.notificationsQueued
+          showAutoShareNotice(`Trip started. Automatically shared with ${result.sharedCount} matched Tagalong device${result.sharedCount === 1 ? "" : "s"}.${result.notificationsQueued
             ? ` ${result.notificationsQueued} push notification${result.notificationsQueued === 1 ? " was" : "s were"} queued; delivery isn't guaranteed.`
             : " The inboxes were updated, but no push notification was queued."}`);
         } else if (result.status === "partial") {
@@ -331,7 +331,7 @@ export function useWalk() {
         } else if (result.status === "no-current-recipients") {
           showAutoShareNotice("Trip started. No current matched app devices could receive the share.");
         } else if (result.status === "no-matches") {
-          showAutoShareNotice("Trip started. No matched Safe Walk contacts were found; no automatic share was sent.");
+          showAutoShareNotice("Trip started. No matched Tagalong contacts were found; no automatic share was sent.");
         } else if (result.status === "demo") {
           showAutoShareNotice(`Demo ${tripNoun(travelMode)} started. Simulated trips aren't automatically shared.`);
         } else if (result.status === "unsupported") {
