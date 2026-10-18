@@ -235,13 +235,15 @@ test("lighting normalization, distance buffers, and sparse-data fallback", () =>
   assert.equal(lighting.unavailableLighting().lightScore, null);
 });
 test("routes use real provider alternatives and do not silently fabricate without a key", async () => {
+  delete process.env.HeiGET;
   delete process.env.ORS_API_KEY;
   assert.equal((await call("/routes", { from: { lat: 0, lng: 0 }, to: { lat: 0, lng: 0.001 } })).status, 503);
-  process.env.ORS_API_KEY = "test-fixture-not-a-real-key";
-  let requestedUrl = "", requestedAlternatives = false, requestedInstructions = false;
+  process.env.HeiGET = "test-fixture-not-a-real-key";
+  let requestedUrl = "", requestedAuthorization = "", requestedAlternatives = false, requestedInstructions = false;
   globalThis.fetch = (async (url: string | URL | Request, options?: RequestInit) => {
     if (String(url).includes("openrouteservice")) {
       requestedUrl = String(url);
+      requestedAuthorization = new Headers(options!.headers).get("Authorization") ?? "";
       const body = JSON.parse(options!.body as string);
       requestedAlternatives = body.alternative_routes.target_count === 3;
       requestedInstructions = body.instructions === true;
@@ -255,16 +257,17 @@ test("routes use real provider alternatives and do not silently fabricate withou
   }) as typeof fetch;
   const r = await call("/routes", { from: { lat: 0, lng: 0 }, to: { lat: 0, lng: 0.001 } });
   assert.match(requestedUrl, /^https:\/\/api\.heigit\.org\/openrouteservice\/v2\/directions\/foot-walking\/geojson$/);
+  assert.equal(requestedAuthorization, "test-fixture-not-a-real-key");
   assert.equal(r.status, 200); assert.equal(requestedAlternatives, true); assert.equal(requestedInstructions, true);
   assert.equal(r.data.demo, false); assert.equal(r.data.routes.length, 2);
   assert.deepEqual(r.data.routes[0].streetNames, ["Oak Street", "Pine Avenue"]);
   assert.equal(r.data.travelMode, "walking");
   assert.equal(r.data.routes[0].durationSeconds, 90);
   assert.equal(r.data.routes[1].lightBreakdown.limitedData, true);
-  globalThis.fetch = realFetch; delete process.env.ORS_API_KEY;
+  globalThis.fetch = realFetch; delete process.env.HeiGET; delete process.env.ORS_API_KEY;
 });
 test("driving route planning uses the car profile, skips lighting, and enforces 300 km and five-hour limits", async () => {
-  process.env.ORS_API_KEY = "test-fixture-not-a-real-key";
+  process.env.HeiGET = "test-fixture-not-a-real-key";
   const fastGeometry: Geometry = { type: "LineString", coordinates: [[0, 0], [1, 0], [2, 0]] };
   const alternateGeometry: Geometry = { type: "LineString", coordinates: [[0, 0], [1, 0.2], [2, 0]] };
   let requestedUrl = "", overpassRequests = 0;
@@ -300,6 +303,7 @@ test("driving route planning uses the car profile, skips lighting, and enforces 
     assert.equal((await call("/routes", { from: { lat: 0, lng: 0 }, to: { lat: 0, lng: 2 }, travelMode: "driving" })).status, 422);
   } finally {
     globalThis.fetch = realFetch;
+    delete process.env.HeiGET;
     delete process.env.ORS_API_KEY;
   }
 });

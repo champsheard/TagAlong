@@ -29,8 +29,9 @@ The project uses two workflows:
 The API health endpoint is `GET /api/health`.
 
 The development web server proxies `/api` to port 3001, so web requests and
-`/track/<code>` use the same origin. Add **ORS_API_KEY** through Replit Secrets.
-Never put it in an `EXPO_PUBLIC_*` variable or commit it.
+`/track/<code>` use the same origin. Add **HeiGET** through Replit Secrets for
+live routes; the existing **ORS_API_KEY** is accepted as a fallback. Never put
+either key in an `EXPO_PUBLIC_*` variable or commit it.
 
 ## Run locally
 
@@ -53,7 +54,8 @@ and reload the browser to refresh the routing-availability notice.
 
 | Variable | Use |
 | --- | --- |
-| `ORS_API_KEY` | Server-only OpenRouteService key; required for live routing. |
+| `HeiGET` | Preferred server-only HeiGIT/OpenRouteService key for live routing. |
+| `ORS_API_KEY` | Backward-compatible server-only fallback key for live routing. |
 | `EXPO_PUBLIC_API_URL` | HTTPS API/web origin for the native app, without `/api` or a trailing slash. Web uses same-origin `/api`. |
 | `PORT` | Express port; development workflow sets 3001, production defaults to 5000. |
 | `DATABASE_PATH` | Optional writable SQLite path; default `data/safe-walk.sqlite`. |

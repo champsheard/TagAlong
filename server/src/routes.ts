@@ -37,7 +37,7 @@ export async function planRoutes(from: Point, to: Point, travelMode: TravelMode 
   if (separation > maximumDistance) {
     throw new HttpError(400, travelMode === "driving" ? "Choose a driving destination within 300 km." : "Choose a walking destination within 15 km.");
   }
-  const key = process.env.ORS_API_KEY;
+  const key = process.env.HeiGET || process.env.ORS_API_KEY;
   if (!key) throw new HttpError(503, "Live routing needs the server's OpenRouteService key. Try the walking demo while setup is completed.", "ROUTING_NOT_CONFIGURED");
   let raw: { features?: OrsFeature[] };
   let providerStatus: number | undefined;

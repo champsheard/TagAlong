@@ -35,7 +35,7 @@ app.get("/api/health", (_request, response) => {
   });
 });
 
-app.get("/api/config", async (_request, response) => response.json({ routingAvailable: !!process.env.ORS_API_KEY, demoAvailable: true, locationIntervalSeconds: 5, ...await contactsConfig() }));
+app.get("/api/config", async (_request, response) => response.json({ routingAvailable: !!(process.env.HeiGET || process.env.ORS_API_KEY), demoAvailable: true, locationIntervalSeconds: 5, ...await contactsConfig() }));
 app.post("/api/feedback", rateLimit(10, 3600000), (request, response) => {
   response.status(201).json(submitArrivalFeedback(request.body));
 });
