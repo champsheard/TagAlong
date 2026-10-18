@@ -261,10 +261,6 @@ export default function Index() {
                 </Pressable>;
               })}
             </View>
-            {!walk.result.demo ? <Pressable accessibilityRole="switch" accessibilityState={{ checked: walk.demo }} onPress={() => walk.setDemo(!walk.demo)} style={s.simulationToggle}>
-               <View style={{ flex: 1 }}><Text style={s.simulationTitle}>Simulate movement</Text><Text style={s.simulationHint}>Move along this route for 90 seconds to preview tracking.</Text></View>
-              <View style={[s.switchTrack, walk.demo && s.switchOn]}><View style={[s.switchThumb, walk.demo && s.thumbOn]} /></View>
-            </Pressable> : null}
              {walk.demo && !walk.result.demo ? <View style={{ marginTop: 10 }}><Notice tone="warning">Simulated movement follows this route for 90 seconds. It does not share a real location.</Notice></View> : null}
             {walk.error ? <View style={{ marginTop: 10 }}><Notice tone="danger">{walk.error}</Notice></View> : null}
             <View style={s.buttonRow}>
@@ -455,13 +451,6 @@ const s = StyleSheet.create({
   buttonRow: { flexDirection: "row", gap: 9, marginTop: 13 },
   textAction: { alignSelf: "center", paddingVertical: 12, paddingHorizontal: 12 },
   textActionText: { color: palette.evergreen, fontSize: 13, fontWeight: "800", textDecorationLine: "underline" },
-  simulationToggle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 16, borderRadius: 14, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.paper, padding: 13, marginTop: 12 },
-  simulationTitle: { color: palette.evergreen, fontSize: 14, fontWeight: "900" },
-  simulationHint: { color: palette.muted, fontSize: 12, lineHeight: 17, marginTop: 3 },
-  switchTrack: { width: 46, height: 27, borderRadius: 20, backgroundColor: "#D5DCCB", justifyContent: "center", paddingHorizontal: 3 },
-  switchOn: { backgroundColor: palette.evergreen },
-  switchThumb: { width: 21, height: 21, borderRadius: 12, backgroundColor: palette.paper },
-  thumbOn: { alignSelf: "flex-end", backgroundColor: palette.citron },
   backLink: { alignSelf: "flex-start", paddingVertical: 5, marginBottom: 15 },
   backLinkText: { color: palette.evergreen, fontSize: 14, fontWeight: "800" },
   chosenRoute: { borderRadius: 15, backgroundColor: palette.paleGreen, padding: 15, marginBottom: 13 },
