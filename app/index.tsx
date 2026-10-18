@@ -7,6 +7,7 @@ import MapView from "../components/MapView";
 import MapContextPill from "../components/MapContextPill";
 import AddressSearch from "../components/AddressSearch";
 import DraggableDrawer from "../components/DraggableDrawer";
+import RouteProviderAttribution from "../components/RouteProviderAttribution";
 import { ActionButton, Eyebrow, Notice, SectionTitle } from "../components/WalkUI";
 import ArrivalFeedback from "../components/ArrivalFeedback";
 import { common, palette } from "../constants/theme";
@@ -227,6 +228,7 @@ export default function Index() {
             </View>
             {walk.result.demo ? <View style={{ marginTop: 12 }}><Notice tone="warning">Demo walk · Routes, movement, and lighting scores are simulated. They do not describe real streets or real lighting.</Notice></View> : null}
             {!!walk.result.notices.length && walk.result.notices.map((notice, i) => <View key={i} style={{ marginTop: 9 }}><Notice>{notice}</Notice></View>)}
+            <RouteProviderAttribution provider={walk.result.provider} />
             <Text style={s.routeSectionLabel}>PICK A ROUTE</Text>
             <View style={s.routeChoices}>
               {walk.result.routes.map(option => {

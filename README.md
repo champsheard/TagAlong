@@ -9,6 +9,8 @@ Walk planning and link tracking need no account. Optional app contacts use verif
 phone/email ownership and device enrollment. Contact names stay on-device; the
 server stores keyed matching hashes, not the address book. Your own identifier is
 processed transiently by the server and verification provider. No ads or analytics.
+Route start and destination coordinates go to OpenRouteService; when it fails,
+Tagalong sends them to GraphHopper for backup routing and labels those routes.
 **This is not an emergency service or a safety guarantee. Call 911 when needed.**
 
 ## Requirements
@@ -30,8 +32,9 @@ The API health endpoint is `GET /api/health`.
 
 The development web server proxies `/api` to port 3001, so web requests and
 `/track/<code>` use the same origin. Add **HeiGET** through Replit Secrets for
-live routes; the existing **ORS_API_KEY** is accepted as a fallback. Never put
-either key in an `EXPO_PUBLIC_*` variable or commit it.
+primary live routes and **GRAPHHOPPER_API_KEY** for failover. The existing
+**ORS_API_KEY** remains accepted as an OpenRouteService fallback. All keys are
+server-only; never put them in an `EXPO_PUBLIC_*` variable or commit them.
 
 ## Run locally
 
@@ -56,6 +59,7 @@ and reload the browser to refresh the routing-availability notice.
 | --- | --- |
 | `HeiGET` | Preferred server-only HeiGIT/OpenRouteService key for live routing. |
 | `ORS_API_KEY` | Backward-compatible server-only fallback key for live routing. |
+| `GRAPHHOPPER_API_KEY` | Server-only GraphHopper key, used when OpenRouteService fails or is not configured. |
 | `EXPO_PUBLIC_API_URL` | HTTPS API/web origin for the native app, without `/api` or a trailing slash. Web uses same-origin `/api`. |
 | `PORT` | Express port; development workflow sets 3001, production defaults to 5000. |
 | `DATABASE_PATH` | Optional writable SQLite path; default `data/safe-walk.sqlite`. |

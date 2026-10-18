@@ -1,5 +1,5 @@
 import { Platform, Share } from "react-native";
-import type { ArrivalFeedbackPayload, Geometry, Place, Point, Position, RouteResult, TrackingData, TravelMode, TripCredentials } from "../shared/types";
+import type { ArrivalFeedbackPayload, Geometry, Place, Point, Position, RouteProvider, RouteResult, TrackingData, TravelMode, TripCredentials } from "../shared/types";
 import type { ContactMatch, ContactsConfig, IdentifierKind, InstallationProfile, InstallationSession, ReceivedTrip } from "../shared/contacts";
 
 const configured = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, "");
@@ -33,8 +33,8 @@ export const api = {
   geocode: (query: string, near?: Point) => request<Place[]>("/geocode", "POST", { q: query, near }),
   routes: (from: Point, to: Point, travelMode: TravelMode) => request<RouteResult>("/routes", "POST", { from, to, travelMode }),
   demo: () => request<RouteResult & { from: Place; to: Place }>("/demo"),
-  createTrip: (routeGeometry: Geometry, etaSeconds: number, demo: boolean, travelMode: TravelMode) =>
-    request<Omit<TripCredentials, "demo">>("/trips", "POST", { routeGeometry, etaSeconds, demo, travelMode }),
+  createTrip: (routeGeometry: Geometry, etaSeconds: number, demo: boolean, travelMode: TravelMode, routeProvider?: RouteProvider) =>
+    request<Omit<TripCredentials, "demo">>("/trips", "POST", { routeGeometry, etaSeconds, demo, travelMode, routeProvider }),
   location: (trip: TripCredentials, position: Position) =>
     request<{ ok: boolean; remoteStopAlertDueAt: number | null; remoteStopAlertAt: number | null; remoteStopAlertClearedAt: number | null }>(`/trips/${trip.tripId}/location`, "POST", position, trip.writeToken),
   cancelDriveStopAlert: (trip: TripCredentials) =>

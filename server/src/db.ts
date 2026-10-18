@@ -23,6 +23,7 @@ database.exec(`
     token_hash TEXT NOT NULL,
     route TEXT NOT NULL,
     travel_mode TEXT NOT NULL DEFAULT 'walking' CHECK (travel_mode IN ('walking','driving')),
+    route_provider TEXT CHECK (route_provider IN ('OpenRouteService','GraphHopper')),
     status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','arrived','help')),
     started_at INTEGER NOT NULL,
     ended_at INTEGER,
@@ -101,6 +102,10 @@ export function migrateTripTravelMode(db: Database.Database) {
   }
 }
 migrateTripTravelMode(database);
+const tripColumnsWithProvider = database.pragma("table_info(trips)") as { name: string }[];
+if (!tripColumnsWithProvider.some(column => column.name === "route_provider")) {
+  database.exec("ALTER TABLE trips ADD COLUMN route_provider TEXT CHECK (route_provider IN ('OpenRouteService','GraphHopper'))");
+}
 
 const stopMonitorColumns: [string, string][] = [
   ["stop_started_at", "INTEGER"], ["stop_anchor_lat", "REAL"], ["stop_anchor_lng", "REAL"],

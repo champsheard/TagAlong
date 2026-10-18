@@ -8,6 +8,7 @@ import { BrandHeader, Eyebrow, Notice, SectionTitle } from "../../components/Wal
 import { common, palette } from "../../constants/theme";
 import { useTracking } from "../../hooks/useTracking";
 import TrackingWidgetAction from "../../components/TrackingWidgetAction";
+import RouteProviderAttribution from "../../components/RouteProviderAttribution";
 import { updateTrackingWidget } from "../../lib/trackingWidget";
 
 const minutes = (at: number, now: number) => Math.max(0, Math.ceil((at - now) / 60000));
@@ -99,6 +100,7 @@ export default function TrackTrip() {
         <View style={s.grabber} />
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.panelContent}>
           <BackToTagalong onPress={leaveLiveView} />
+          <RouteProviderAttribution provider={data.routeProvider} />
           {data.status === "help" ? <Notice tone="danger">Your contact flagged that they need help. This page does not call emergency services. If you believe someone is in immediate danger, contact 911.</Notice> :
             data.status === "arrived" ? <Notice>The trip has ended. Live location sharing is stopped.</Notice> :
               waitingTooLong ? <Notice tone="warning">No location update for {elapsed(tracking.now - (data.lastUpdateAt ?? data.startedAt))}. This may be an older location; try contacting your {personKind} directly.</Notice> :

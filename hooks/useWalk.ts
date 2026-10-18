@@ -291,7 +291,7 @@ export function useWalk() {
       }
       if (!demo) setMapLocation(p);
       latest.current = p; setPosition(p);
-      const created = await api.createTrip(selectedRoute.geometry, demo ? 90 : selectedRoute.durationSeconds, demo, travelMode);
+      const created = await api.createTrip(selectedRoute.geometry, demo ? 90 : selectedRoute.durationSeconds, demo, travelMode, demo ? undefined : result?.provider);
       const next: ActiveTrip = { ...created, demo, travelMode, routeLabel: selectedRoute.label, route: selectedRoute };
       try { await persistTrip(credentials(next), backgroundPermission === "granted"); }
       catch {

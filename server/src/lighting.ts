@@ -36,7 +36,7 @@ export async function loadLightingArea(routes: Geometry[]): Promise<LightingArea
   const job = (async () => {
     // Only explicitly 24/7 shops are considered open. Amenities/transit are
     // proxies for possible activity, not a promise that people are present.
-    const query = `[out:json][timeout:20];(
+    const query = `[out:json][timeout:7];(
       node["highway"="street_lamp"](${bbox});
       way["lit"="yes"](${bbox});
       nwr["shop"]["opening_hours"="24/7"](${bbox});
@@ -47,7 +47,7 @@ export async function loadLightingArea(routes: Geometry[]): Promise<LightingArea
     );out body center geom;`;
     try {
       const response = await fetch("https://overpass-api.de/api/interpreter", {
-        method: "POST", body: new URLSearchParams({ data: query }), signal: AbortSignal.timeout(25000),
+        method: "POST", body: new URLSearchParams({ data: query }), signal: AbortSignal.timeout(8000),
         headers: { "User-Agent": "Tagalong/1.0" },
       });
       if (!response.ok) throw new Error("provider unavailable");

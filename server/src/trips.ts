@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
-import type { Geometry, Position, TrackingData, TravelMode, TripStatus } from "../../shared/types";
+import type { Geometry, Position, RouteProvider, TrackingData, TravelMode, TripStatus } from "../../shared/types";
 import { routeLength } from "../../shared/geo";
 import { database } from "./db";
 import { HttpError } from "./errors";
@@ -10,20 +10,24 @@ import { driveStopAlertState, recordDriveStopLocation } from "./driveStopMonitor
 type TripRow = {
   id: string; share_code: string; token_hash: string; route: string;
   status: TripStatus; started_at: number; ended_at: number | null; eta_at: number;
-  expires_at: number; last_location: string | null; last_update_at: number | null; demo: number; travel_mode: TravelMode;
+  expires_at: number; last_location: string | null; last_update_at: number | null; demo: number; travel_mode: TravelMode; route_provider: RouteProvider | null;
   stop_started_at: number | null; stop_anchor_lat: number | null; stop_anchor_lng: number | null;
   stop_place_checked_at: number | null; stop_has_mapped_place: number | null;
   remote_stop_alert_due_at: number | null; remote_stop_alert_at: number | null;
   remote_stop_alert_cleared_at: number | null;
 };
 const digest = (token: string) => createHash("sha256").update(token).digest("hex");
-export function createTrip(body: { routeGeometry?: Geometry; etaSeconds?: number; demo?: boolean; travelMode?: TravelMode }) {
+export function createTrip(body: { routeGeometry?: Geometry; etaSeconds?: number; demo?: boolean; travelMode?: TravelMode; routeProvider?: RouteProvider }) {
   const routeGeometry = body.routeGeometry;
   validateGeometry(routeGeometry);
   if (!Number.isFinite(body.etaSeconds) || body.etaSeconds! < 1 || body.etaSeconds! > 21600) throw new HttpError(400, "Provide a valid ETA between 1 second and 6 hours.");
   if (body.demo !== undefined && typeof body.demo !== "boolean") throw new HttpError(400, "Invalid demo setting.");
   const travelMode = body.travelMode ?? "walking";
   if (travelMode !== "walking" && travelMode !== "driving") throw new HttpError(400, "Choose walking or driving routes.");
+  if (body.routeProvider !== undefined && body.routeProvider !== "OpenRouteService" && body.routeProvider !== "GraphHopper") {
+    throw new HttpError(400, "Invalid route provider.");
+  }
+  const routeProvider = body.demo ? null : body.routeProvider ?? "OpenRouteService";
   const maxRouteDistance = travelMode === "driving" ? 300_000 : 25_000;
   if (routeLength(routeGeometry) > maxRouteDistance) {
     throw new HttpError(400, travelMode === "driving" ? "Driving trips are limited to 300 km." : "Walking trips are limited to 25 km.");
@@ -31,9 +35,9 @@ export function createTrip(body: { routeGeometry?: Geometry; etaSeconds?: number
   if (travelMode === "driving" && body.etaSeconds! > 5 * 60 * 60) throw new HttpError(400, "Driving ETAs must be five hours or less so tracking remains available through the trip.");
   const tripId = randomUUID(), shareCode = randomBytes(24).toString("base64url"), writeToken = randomBytes(32).toString("base64url");
   const now = Date.now(), expiresAt = now + 21600000, etaAt = now + Math.round(body.etaSeconds! * 1000);
-  database.prepare("INSERT INTO trips(id,share_code,token_hash,route,travel_mode,started_at,eta_at,expires_at,demo) VALUES(?,?,?,?,?,?,?,?,?)")
-    .run(tripId, shareCode, digest(writeToken), JSON.stringify(routeGeometry), travelMode, now, etaAt, expiresAt, body.demo ? 1 : 0);
-  return { tripId, shareCode, writeToken, etaAt, expiresAt, travelMode };
+  database.prepare("INSERT INTO trips(id,share_code,token_hash,route,travel_mode,route_provider,started_at,eta_at,expires_at,demo) VALUES(?,?,?,?,?,?,?,?,?,?)")
+    .run(tripId, shareCode, digest(writeToken), JSON.stringify(routeGeometry), travelMode, routeProvider, now, etaAt, expiresAt, body.demo ? 1 : 0);
+  return { tripId, shareCode, writeToken, etaAt, expiresAt, travelMode, ...(routeProvider ? { routeProvider } : {}) };
 }
 export function writable(id: string, token: string | undefined): TripRow {
   if (!token || token.length > 200) throw new HttpError(401, "A private write token is required.");
@@ -94,6 +98,7 @@ export function trackTrip(code: string): TrackingData {
     status: row.status, lastLocation: row.last_location ? JSON.parse(row.last_location) : null,
     lastUpdateAt: row.last_update_at, route: JSON.parse(row.route),
     etaAt: row.eta_at, startedAt: row.started_at, expiresAt: row.expires_at, demo: !!row.demo, travelMode: row.travel_mode,
+    ...(row.route_provider ? { routeProvider: row.route_provider } : {}),
     ...driveStopAlertState(row.id),
   };
 }

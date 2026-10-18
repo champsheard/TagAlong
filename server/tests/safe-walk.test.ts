@@ -235,6 +235,7 @@ test("lighting normalization, distance buffers, and sparse-data fallback", () =>
   assert.equal(lighting.unavailableLighting().lightScore, null);
 });
 test("routes use real provider alternatives and do not silently fabricate without a key", async () => {
+  delete process.env.GRAPHHOPPER_API_KEY;
   delete process.env.HeiGET;
   delete process.env.ORS_API_KEY;
   assert.equal((await call("/routes", { from: { lat: 0, lng: 0 }, to: { lat: 0, lng: 0.001 } })).status, 503);
@@ -264,9 +265,65 @@ test("routes use real provider alternatives and do not silently fabricate withou
   assert.equal(r.data.travelMode, "walking");
   assert.equal(r.data.routes[0].durationSeconds, 90);
   assert.equal(r.data.routes[1].lightBreakdown.limitedData, true);
-  globalThis.fetch = realFetch; delete process.env.HeiGET; delete process.env.ORS_API_KEY;
+  globalThis.fetch = realFetch; delete process.env.HeiGET; delete process.env.ORS_API_KEY; delete process.env.GRAPHHOPPER_API_KEY;
+});
+test("GraphHopper backs up OpenRouteService and its attribution persists in private tracking", async () => {
+  delete process.env.HeiGET;
+  delete process.env.ORS_API_KEY;
+  process.env.HeiGET = "test-fixture-not-a-real-key";
+  process.env.GRAPHHOPPER_API_KEY = "test-fixture-not-a-real-key";
+  let orsCalls = 0, graphHopperKey = "", graphHopperProfile = "", graphHopperAlternatives = false;
+  globalThis.fetch = (async (url: string | URL | Request, options?: RequestInit) => {
+    const address = String(url);
+    if (address.includes("api.heigit.org")) {
+      orsCalls++;
+      return new Response("unavailable", { status: 503 });
+    }
+    if (address.includes("graphhopper.com/api/1/route")) {
+      graphHopperKey = new URL(address).searchParams.get("key") ?? "";
+      const body = JSON.parse(options!.body as string);
+      graphHopperProfile = body.profile;
+      graphHopperAlternatives = body.algorithm === "alternative_route" && body["alternative_route.max_paths"] === 2;
+      return Response.json({ paths: [{
+        points: geometry, distance: 111, time: 90_000,
+        instructions: [{ street_name: "Oak Street" }, { street_name: "Pine Avenue" }],
+      }] });
+    }
+    if (address.includes("overpass")) return Response.json({ elements: [] });
+    return realFetch(url, options);
+  }) as typeof fetch;
+  try {
+    const result = await call("/routes", { from: { lat: 0, lng: 0 }, to: { lat: 0, lng: 0.001 } });
+    assert.equal(result.status, 200);
+    assert.equal(orsCalls, 1);
+    assert.equal(graphHopperKey, "test-fixture-not-a-real-key");
+    assert.equal(graphHopperProfile, "foot");
+    assert.equal(graphHopperAlternatives, true);
+    assert.equal(result.data.provider, "GraphHopper");
+    assert.deepEqual(result.data.routes.map((route: { label: string }) => route.label), ["Fastest", "Safest"]);
+    assert.ok(result.data.notices.some((notice: string) => notice.includes("GraphHopper")));
+
+    const created = await call("/trips", {
+      routeGeometry: result.data.routes[0].geometry, etaSeconds: 90, travelMode: "walking", routeProvider: result.data.provider,
+    });
+    const tracked = await call(`/track/${created.data.shareCode}`);
+    assert.equal(tracked.data.routeProvider, "GraphHopper");
+
+    const drive = await call("/routes", {
+      from: { lat: 0, lng: 0 }, to: { lat: 0, lng: 0.001 }, travelMode: "driving",
+    });
+    assert.equal(drive.status, 200);
+    assert.equal(drive.data.provider, "GraphHopper");
+    assert.equal(graphHopperProfile, "car");
+  } finally {
+    globalThis.fetch = realFetch;
+    delete process.env.HeiGET;
+    delete process.env.ORS_API_KEY;
+    delete process.env.GRAPHHOPPER_API_KEY;
+  }
 });
 test("driving route planning uses the car profile, skips lighting, and enforces 300 km and five-hour limits", async () => {
+  delete process.env.GRAPHHOPPER_API_KEY;
   process.env.HeiGET = "test-fixture-not-a-real-key";
   const fastGeometry: Geometry = { type: "LineString", coordinates: [[0, 0], [1, 0], [2, 0]] };
   const alternateGeometry: Geometry = { type: "LineString", coordinates: [[0, 0], [1, 0.2], [2, 0]] };
