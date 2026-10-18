@@ -40,20 +40,36 @@ export async function planRoutes(from: Point, to: Point, travelMode: TravelMode 
   const key = process.env.ORS_API_KEY;
   if (!key) throw new HttpError(503, "Live routing needs the server's OpenRouteService key. Try the walking demo while setup is completed.", "ROUTING_NOT_CONFIGURED");
   let raw: { features?: OrsFeature[] };
+  let providerStatus: number | undefined;
   try {
     const profile = travelMode === "driving" ? "driving-car" : "foot-walking";
-    const response = await fetch(`https://api.openrouteservice.org/v2/directions/${profile}/geojson`, {
+    const response = await fetch(`https://api.heigit.org/openrouteservice/v2/directions/${profile}/geojson`, {
       method: "POST",
       headers: { Authorization: key, "Content-Type": "application/json" },
       body: JSON.stringify({ coordinates: [[from.lng, from.lat], [to.lng, to.lat]], instructions: true, alternative_routes: { target_count: 3, weight_factor: 1.6, share_factor: 0.6 } }),
       signal: AbortSignal.timeout(20000),
     });
+    providerStatus = response.status;
     if (response.status === 401 || response.status === 403) throw new HttpError(503, "The routing service rejected its server key. Please update the OpenRouteService key.");
     if (response.status === 429) throw new HttpError(503, "The routing provider is busy. Please wait and retry.");
-    if (!response.ok) throw new HttpError(422, `No ${modeName} routes found. Try another destination.`);
+    if (!response.ok) {
+      console.error("[routing] OpenRouteService rejected directions request", { status: response.status, profile });
+      throw new HttpError(422, `No ${modeName} routes found. Try another destination.`);
+    }
     raw = await response.json();
   } catch (e) {
     if (e instanceof HttpError) throw e;
+    const error = e instanceof Error ? e as Error & { code?: unknown; cause?: unknown } : null;
+    const cause = error?.cause && typeof error.cause === "object"
+      ? error.cause as { name?: unknown; code?: unknown }
+      : null;
+    console.error("[routing] OpenRouteService request failed", {
+      name: error?.name ?? "UnknownError",
+      code: typeof error?.code === "string" ? error.code : undefined,
+      causeName: typeof cause?.name === "string" ? cause.name : undefined,
+      causeCode: typeof cause?.code === "string" ? cause.code : undefined,
+      providerStatus,
+    });
     throw new HttpError(502, "The routing service couldn't be reached. Please retry.");
   }
   const features = (raw.features ?? []).slice(0, 3);
@@ -99,12 +115,12 @@ export async function planRoutes(from: Point, to: Point, travelMode: TravelMode 
   }));
   const fastest = scored.reduce((a, b) => a.durationSeconds <= b.durationSeconds ? a : b);
   const hasLighting = scored.some(r => r.lightScore !== null);
-  const best = hasLighting ? scored.reduce((a, b) => (a.lightScore ?? -1) >= (b.lightScore ?? -1) ? a : b) : fastest;
-  if (best.id === fastest.id) notices.push(hasLighting
+  const lightingPreferred = hasLighting ? scored.reduce((a, b) => (a.lightScore ?? -1) >= (b.lightScore ?? -1) ? a : b) : fastest;
+  if (lightingPreferred.id === fastest.id) notices.push(hasLighting
     ? "The fastest route also has the highest available lighting estimate; both choices use the same path."
-    : "Without lighting data, both choices show the fastest path. No best-lit claim can be made.");
+    : "Without lighting data, both choices use the fastest path; the Safest option has no lighting estimate.");
   if (scored.some(r => r.lightBreakdown.limitedData) && area) notices.push("Limited lighting data for this area. Scores use available lit-street and activity proxies and are estimates, not safety guarantees.");
-  return { routes: [{ ...fastest, label: "Fastest" }, { ...best, id: `${best.id}-lit`, label: "Best lit" }] as RouteOption[], notices, demo: false, travelMode };
+  return { routes: [{ ...fastest, label: "Fastest" }, { ...lightingPreferred, id: `${lightingPreferred.id}-safest`, label: "Safest" }] as RouteOption[], notices, demo: false, travelMode };
 }
 
 export function demoRoutes() {
@@ -117,12 +133,12 @@ export function demoRoutes() {
     [-73.9914, 40.7325], [-73.9892, 40.7353], [-73.9900, 40.7359],
   ] };
   const make = (geometry: Geometry, label: RouteOption["label"], score: number, duration: number): RouteOption => ({
-    id: label === "Fastest" ? "demo-fastest" : "demo-best-lit", geometry,
+    id: label === "Fastest" ? "demo-fastest" : "demo-safest", geometry,
     distanceMeters: Math.round(routeLength(geometry)), durationSeconds: duration, label, lightScore: score,
     lightBreakdown: { lampsPer100m: score / 60, activityCount: 8, litShare: score / 100, limitedData: false, unavailable: false, simulated: true, reason: "Simulated lighting data — not a real-world estimate" },
   });
   return {
-    routes: [make(fast, "Fastest", 62, 900), make(lit, "Best lit", 88, 1020)],
+    routes: [make(fast, "Fastest", 62, 900), make(lit, "Safest", 88, 1020)],
     notices: ["Demo routes, scores, and movement are simulated. This demonstrates real private trip sharing, not navigation or actual street lighting."],
     demo: true, travelMode: "walking" as const,
     from: { lat: 40.7308, lng: -73.9973, label: "Washington Square Park · Demo start" },

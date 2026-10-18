@@ -93,9 +93,13 @@ export function useWalk() {
           setFinishedStatus(data.status); setPhase("finished"); return;
         }
         const mode = saved.travelMode ?? data.travelMode ?? "walking";
-        const route: RouteOption = { id: "restored", geometry: data.route, distanceMeters: 0, durationSeconds: Math.max(1, (data.etaAt - data.startedAt) / 1000), label: saved.routeLabel ?? "Fastest", lightScore: null, lightBreakdown: { lampsPer100m: 0, activityCount: 0, litShare: 0, limitedData: true, unavailable: true, reason: "Resumed trip" } };
+        const routeLabel: RouteOption["label"] = saved.routeLabel === "Fastest" || saved.routeLabel === "Alternative"
+          ? saved.routeLabel
+          : saved.routeLabel ? "Safest" : "Fastest";
+        const restored = { ...saved, travelMode: mode, routeLabel };
+        const route: RouteOption = { id: "restored", geometry: data.route, distanceMeters: 0, durationSeconds: Math.max(1, (data.etaAt - data.startedAt) / 1000), label: routeLabel, lightScore: null, lightBreakdown: { lampsPer100m: 0, activityCount: 0, litShare: 0, limitedData: true, unavailable: true, reason: "Resumed trip" } };
         setTravelModeState(mode);
-        setTrip({ ...saved, travelMode: mode, route }); setDemo(saved.demo);
+        setTrip({ ...restored, route }); setDemo(saved.demo);
         if (saved.pendingEnd) {
           stopping.current = true;
           await stopBackgroundLocationUpdates();
@@ -107,7 +111,7 @@ export function useWalk() {
             let enabled = false;
             try {
               enabled = await startBackgroundLocationUpdates();
-              if (enabled) await persistTrip(saved, true);
+              if (enabled) await persistTrip(restored, true);
             } catch {}
             if (mounted) {
               setBackgroundEnabled(enabled);
@@ -258,7 +262,7 @@ export function useWalk() {
     try {
       const data = await api.demo();
       setFrom(data.from); setTo(data.to); setTravelModeState(data.travelMode); setDemo(true); setResult(data);
-      setSelectedId(data.routes.find(r => r.label === "Best lit")?.id ?? data.routes[0].id); setPhase("routes");
+      setSelectedId(data.routes.find(r => r.label === "Safest")?.id ?? data.routes[0].id); setPhase("routes");
     } catch (e) { setError(message(e)); } finally { setBusy(false); }
   }
   async function planRoutes() {
@@ -270,7 +274,7 @@ export function useWalk() {
       const data = await api.routes(start, to, travelMode);
       if (!data.routes.length) throw new Error(`No ${travelMode} routes found. Try a closer destination.`);
       setResult(data);
-      setSelectedId(data.routes.find(r => r.label === (travelMode === "walking" ? "Best lit" : "Fastest"))?.id ?? data.routes[0].id);
+      setSelectedId(data.routes.find(r => r.label === (travelMode === "walking" ? "Safest" : "Fastest"))?.id ?? data.routes[0].id);
       setPhase("routes");
     } catch (e) { setError(message(e)); } finally { setBusy(false); }
   }

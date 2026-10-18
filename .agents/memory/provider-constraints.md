@@ -34,3 +34,14 @@ verification codes; an inability to list domains is not proof of a broken connec
 address on a Resend-verified domain and configure it through the environment
 variable flow. Do not replace the key or default to a restricted test-domain
 sender for general recipients.
+
+OpenRouteService directions should use `api.heigit.org/openrouteservice/v2`,
+not the deprecated `api.openrouteservice.org/v2` host. The provider says the
+existing API key remains valid on the new URL.
+
+**Why:** The provider deprecated the old host on April 28, 2026 and reduced its
+quota before its planned November 2026 shutdown. A real route request through
+the old host timed out in this project.
+
+**How to apply:** Keep ORS requests on the HeiGIT host and verify actual routes
+against the provider's status page when route requests time out.

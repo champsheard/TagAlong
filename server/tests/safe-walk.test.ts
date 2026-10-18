@@ -38,7 +38,7 @@ test("health, config, and explicitly simulated demo routes", async () => {
   assert.equal((await call("/health")).data.status, "ok");
   const demo = await call("/demo");
   assert.equal(demo.data.demo, true);
-  assert.deepEqual(demo.data.routes.map((r: { label: string }) => r.label), ["Fastest", "Best lit"]);
+  assert.deepEqual(demo.data.routes.map((r: { label: string }) => r.label), ["Fastest", "Safest"]);
   assert.ok(demo.data.routes.every((r: { lightBreakdown: { simulated: boolean } }) => r.lightBreakdown.simulated));
 });
 test("private trip credentials and active location sharing", async () => {
@@ -238,9 +238,10 @@ test("routes use real provider alternatives and do not silently fabricate withou
   delete process.env.ORS_API_KEY;
   assert.equal((await call("/routes", { from: { lat: 0, lng: 0 }, to: { lat: 0, lng: 0.001 } })).status, 503);
   process.env.ORS_API_KEY = "test-fixture-not-a-real-key";
-  let requestedAlternatives = false, requestedInstructions = false;
+  let requestedUrl = "", requestedAlternatives = false, requestedInstructions = false;
   globalThis.fetch = (async (url: string | URL | Request, options?: RequestInit) => {
     if (String(url).includes("openrouteservice")) {
+      requestedUrl = String(url);
       const body = JSON.parse(options!.body as string);
       requestedAlternatives = body.alternative_routes.target_count === 3;
       requestedInstructions = body.instructions === true;
@@ -253,6 +254,7 @@ test("routes use real provider alternatives and do not silently fabricate withou
     return realFetch(url, options);
   }) as typeof fetch;
   const r = await call("/routes", { from: { lat: 0, lng: 0 }, to: { lat: 0, lng: 0.001 } });
+  assert.match(requestedUrl, /^https:\/\/api\.heigit\.org\/openrouteservice\/v2\/directions\/foot-walking\/geojson$/);
   assert.equal(r.status, 200); assert.equal(requestedAlternatives, true); assert.equal(requestedInstructions, true);
   assert.equal(r.data.demo, false); assert.equal(r.data.routes.length, 2);
   assert.deepEqual(r.data.routes[0].streetNames, ["Oak Street", "Pine Avenue"]);

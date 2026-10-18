@@ -239,7 +239,7 @@ export default function Index() {
                   <View style={s.routeTop}>
                    <View style={{ flex: 1 }}><Text style={s.routeName}>{option.label}</Text><Text style={s.routeSub}>{walk.travelMode === "driving"
                      ? option.label === "Alternative" ? "An alternate driving route" : "The fastest estimated drive"
-                     : option.label === "Best lit" ? "Favors streets with more lighting data" : "The shortest estimated time"}</Text></View>
+                     : option.label === "Safest" ? "Favors streets with more lighting data" : "The shortest estimated time"}</Text></View>
                     <View style={[s.radio, selected && s.radioSelected]}>{selected ? <View style={s.radioCore} /> : null}</View>
                   </View>
                   <View style={s.routeMetrics}>

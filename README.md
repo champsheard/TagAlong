@@ -1,6 +1,6 @@
 # Tagalong
 
-Tagalong compares **Fastest** and **Best lit** walking routes, then lets a trusted
+Tagalong compares **Fastest** and **Safest** walking routes, then lets a trusted
 contact follow one private trip in a phone browser. The same Expo Router /
 React Native TypeScript screens run on web, iOS, and Android. Express and
 better-sqlite3 provide routing, lighting estimates, and time-limited trip storage.

@@ -34,12 +34,12 @@ an extra layer of support—not a guarantee of safety.”
 
 ### 0:40–1:15 — Plan and share a walk
 
-**[Enter a test destination. Show the Fastest and Best lit options, then select
+**[Enter a test destination. Show the Fastest and Safest options, then select
 one. Use a real route for this demonstration, or keep the DEMO label visible
 if showing simulated data.]**
 
-**[Participant 1]:** “For a walk, Tagalong compares the fastest route with an
-estimated best-lit route. The estimate uses available map data; it can be
+**[Participant 1]:** “For a walk, Tagalong compares the fastest route with its
+estimated ‘Safest’ option. The estimate uses available lighting data; it can be
 incomplete and does not promise that a street is safe or well lit right now.”
 
 **[Start a test trip and show the sharing choices, then open its tracking page
