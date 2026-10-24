@@ -3,12 +3,11 @@
   "services": {
     "app": {
       "root": ".",
-      "framework": "express",
-      "entrypoint": "server.ts",
+      "framework": "vite",
       "buildCommand": "pnpm run build:vercel",
       "outputDirectory": "public",
       "functions": {
-        "server.ts": {
+        "api/[...path].ts": {
           "maxDuration": 60
         }
       },

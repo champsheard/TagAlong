@@ -15,14 +15,8 @@ Vercel cannot resolve Replit's internal package-firewall host if an npm lockfile
 
 **How to apply:** Before installing, replace `http://package-firewall.replit.internal/npm/` with `https://registry.npmjs.org/`, then run npm with the public registry. Treat npm's unknown `cache-dir` warning as separate from registry failures.
 
-The root package entrypoint belongs to Expo, not the Vercel Express API. The Vercel app service must explicitly use the Express handler entrypoint rather than auto-detecting the root package's `main`.
+Use a static-output preset for the public app service with the custom Expo build, and expose Express only through a conventional `/api/*` function. Do not switch the whole app service to the Express preset.
 
-**Why:** Vercel otherwise tries to load Expo Router as a serverless function and fails because it does not export an Express server.
+**Why:** The Express preset routed page requests into the API handler. Pointing it at the correct Express entrypoint fixed startup but still returned `Cannot GET` for pages; adding HTML rewrites only changed which missing Express route was requested. The package's main entrypoint belongs to Expo and must remain separate.
 
-**How to apply:** Set the Vercel app service entrypoint to the root `server.ts`, which exports the Express app.
-
-When Vercel serves the Expo SPA and Express API from one service, the app service needs an explicit `/` rewrite to `/index.html`; otherwise the root request can reach Express and return `Cannot GET /`. Keep API routes out of a broad SPA fallback.
-
-**Why:** The top-level service rewrite routes public traffic into the service, but does not itself select the SPA document for the homepage.
-
-**How to apply:** Add an exact `source: "/"` to `destination: "/index.html"` service rewrite and retain explicit client routes without masking `/api/*`.
+**How to apply:** Keep the Vite static-output preset with the custom Expo build (this does not migrate the product to Vite), publish the export directory statically, and reserve the catch-all API function for Express. Keep client-page rewrites explicit so they do not mask API paths. Service-level `framework` does not accept null in Vercel's schema.

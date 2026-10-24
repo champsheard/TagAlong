@@ -7,6 +7,9 @@ kept locally as an import backup and is not deployed.
 ## Build and routes
 
 - Vercel uses `pnpm run build:vercel` to export the web app to `public/`.
+- The `app` service uses Vercel's Vite static-output preset with the custom Expo
+  build command; the product itself remains Expo, not Vite. Do not use the
+  Express preset here, because it sends page requests to the API handler.
 - `/api/*` is handled by `api/[...path].ts`.
 - `/contacts` and `/track/:code` load the Expo single-page app.
 - `vercel.json` runs protected expired-data cleanup once daily. Hobby cron timing
