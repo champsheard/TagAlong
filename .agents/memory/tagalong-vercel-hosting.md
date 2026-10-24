@@ -9,8 +9,8 @@ The user chose Vercel Hobby only rather than adding a separate always-on worker.
 
 **How to apply:** When adapting Tagalong to serverless functions, process work during requests or bounded function execution. Clearly retain the app's safety caveats and never promise exact alert timing or delivery.
 
-Vercel cannot resolve Replit's internal package-firewall host if an npm lockfile contains tarball URLs pointing to it. For npm-based Vercel services, use the public npm registry and enable registry-host replacement during installation.
+Vercel cannot resolve Replit's internal package-firewall host if an npm lockfile contains tarball URLs pointing to it. Those URLs include an extra `/npm/` path segment, so replacing only the hostname creates invalid public registry paths; normalize the full URL prefix before installation.
 
-**Why:** Replit-generated npm lockfiles can retain internal tarball URLs that fail with `ENOTFOUND` in Vercel's build environment.
+**Why:** Replit-generated npm lockfiles can retain internal tarball URLs that fail with `ENOTFOUND` in Vercel's build environment. `--replace-registry-host=always` alone preserves the `/npm/` segment and can lead to npm 404 responses.
 
-**How to apply:** Configure the affected Vercel service's install command with `--registry=https://registry.npmjs.org/ --replace-registry-host=always`. Treat npm's unknown `cache-dir` warning as separate from the registry connection failure.
+**How to apply:** Before installing, replace `http://package-firewall.replit.internal/npm/` with `https://registry.npmjs.org/`, then run npm with the public registry. Treat npm's unknown `cache-dir` warning as separate from registry failures.

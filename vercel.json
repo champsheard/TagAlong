@@ -25,7 +25,7 @@
     "mockup-sandbox": {
       "root": "artifacts/mockup-sandbox",
       "framework": "vite",
-      "installCommand": "unset npm_config_cache_dir NPM_CONFIG_CACHE_DIR; npm install --registry=https://registry.npmjs.org/ --replace-registry-host=always",
+      "installCommand": "node scripts/vercel-install.cjs",
       "buildCommand": "PORT=5173 BASE_PATH=/mockup/ npm run build",
       "outputDirectory": "dist",
       "rewrites": [
