@@ -71,22 +71,26 @@ export async function cacheValue(key: string, value: unknown, ttlMs: number) {
   });
 }
 
-async function deleteExpired(query: Query<DocumentData>) {
+async function deleteExpired(query: Query<DocumentData>, maxDocuments = Number.POSITIVE_INFINITY) {
   let deleted = 0;
-  while (true) {
-    const snapshot = await query.limit(400).get();
+  while (deleted < maxDocuments) {
+    const limit = Math.min(400, maxDocuments - deleted);
+    const snapshot = await query.limit(limit).get();
     if (snapshot.empty) return deleted;
     const batch = database.batch();
     for (const document of snapshot.docs) batch.delete(document.ref);
     await batch.commit();
     deleted += snapshot.size;
+    if (snapshot.size < limit) return deleted;
   }
+  return deleted;
 }
 
-async function deleteExpiredTrips(now: number) {
+async function deleteExpiredTrips(now: number, maxTrips = Number.POSITIVE_INFINITY) {
   let deleted = 0;
-  while (true) {
-    const expired = await database.collection("trips").where("expires_at", "<=", now).limit(100).get();
+  while (deleted < maxTrips) {
+    const limit = Math.min(100, maxTrips - deleted);
+    const expired = await database.collection("trips").where("expires_at", "<=", now).limit(limit).get();
     if (expired.empty) return deleted;
     for (const trip of expired.docs) {
       for (const collectionName of ["trip_recipients", "widget_subscriptions", "notification_outbox"]) {
@@ -102,13 +106,16 @@ async function deleteExpiredTrips(now: number) {
     for (const trip of expired.docs) batch.delete(trip.ref);
     await batch.commit();
     deleted += expired.size;
+    if (expired.size < limit) return deleted;
   }
+  return deleted;
 }
 
-async function deleteExpiredInstallations(now: number) {
+async function deleteExpiredInstallations(now: number, maxInstallations = Number.POSITIVE_INFINITY) {
   let deleted = 0;
-  while (true) {
-    const expired = await database.collection("installations").where("seen_at", "<", now - 90 * 86400000).limit(100).get();
+  while (deleted < maxInstallations) {
+    const limit = Math.min(100, maxInstallations - deleted);
+    const expired = await database.collection("installations").where("seen_at", "<", now - 90 * 86400000).limit(limit).get();
     if (expired.empty) return deleted;
     for (const installation of expired.docs) {
       for (const collectionName of ["contact_identifiers", "trip_recipients", "widget_subscriptions", "notification_outbox"]) {
@@ -130,17 +137,27 @@ async function deleteExpiredInstallations(now: number) {
     for (const installation of expired.docs) batch.delete(installation.ref);
     await batch.commit();
     deleted += expired.size;
+    if (expired.size < limit) return deleted;
   }
+  return deleted;
 }
 
-export async function purgeExpired(now = Date.now()) {
+export type PurgeLimits = {
+  maxDocumentsPerCollection?: number;
+  maxTrips?: number;
+  maxInstallations?: number;
+};
+
+export async function purgeExpired(now = Date.now(), limits: PurgeLimits = {}) {
+  const maxDocuments = limits.maxDocumentsPerCollection ?? Number.POSITIVE_INFINITY;
   const tasks = [
-    deleteExpiredTrips(now),
-    deleteExpired(database.collection("cache").where("expires_at", "<=", now)),
-    deleteExpired(database.collection("verification_challenges").where("expires_at", "<=", now)),
-    deleteExpiredInstallations(now),
-    deleteExpired(database.collection("notification_outbox").where("created_at", "<", now - 86400000)),
-    deleteExpired(database.collection("arrival_feedback").where("expires_at", "<=", now)),
+    deleteExpiredTrips(now, limits.maxTrips),
+    deleteExpired(database.collection("cache").where("expires_at", "<=", now), maxDocuments),
+    deleteExpired(database.collection("verification_challenges").where("expires_at", "<=", now), maxDocuments),
+    deleteExpiredInstallations(now, limits.maxInstallations),
+    deleteExpired(database.collection("notification_outbox").where("created_at", "<", now - 86400000), maxDocuments),
+    deleteExpired(database.collection("arrival_feedback").where("expires_at", "<=", now), maxDocuments),
+    deleteExpired(database.collection("rate_limits").where("expires_at", "<=", now), maxDocuments),
   ];
   const counts = await Promise.all(tasks);
   return counts.reduce((sum, count) => sum + count, 0);

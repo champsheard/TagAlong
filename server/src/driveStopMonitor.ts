@@ -155,7 +155,7 @@ export async function driveStopAlertState(id: string) {
   };
 }
 
-export async function processDriveStopAlerts(now = Date.now()) {
+export async function processDriveStopAlerts(now = Date.now(), maxCandidates = 3, maxDue = 20) {
   if (processing) return;
   processing = true;
   try {
@@ -165,7 +165,7 @@ export async function processDriveStopAlerts(now = Date.now()) {
       stop_place_checked_at: number | null; remote_stop_alert_due_at: number | null;
     }).filter(row => row.expires_at > now && row.travel_mode === "driving" && !row.demo &&
       row.stop_started_at <= now - STOP_DURATION_MS && row.stop_place_checked_at === null && row.remote_stop_alert_due_at === null)
-      .sort((a, b) => a.stop_started_at - b.stop_started_at).slice(0, 3);
+      .sort((a, b) => a.stop_started_at - b.stop_started_at).slice(0, maxCandidates);
 
     for (const candidate of candidates) {
       const remote = await hasNearbyMappedPlace({ lat: candidate.stop_anchor_lat, lng: candidate.stop_anchor_lng });
@@ -189,7 +189,7 @@ export async function processDriveStopAlerts(now = Date.now()) {
     }))
       .filter(row => row.expires_at > dueCheckAt && row.travel_mode === "driving" && !row.demo &&
         row.remote_stop_alert_due_at != null && row.remote_stop_alert_due_at <= dueCheckAt)
-      .sort((a, b) => Number(a.remote_stop_alert_due_at) - Number(b.remote_stop_alert_due_at)).slice(0, 20);
+      .sort((a, b) => Number(a.remote_stop_alert_due_at) - Number(b.remote_stop_alert_due_at)).slice(0, maxDue);
     for (const row of due) {
       const sentAt = Date.now();
       const reference = database.collection("trips").doc(row.id);

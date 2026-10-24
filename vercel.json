@@ -1,0 +1,26 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "pnpm run build:vercel",
+  "outputDirectory": "public",
+  "functions": {
+    "api/[...path].ts": {
+      "maxDuration": 60
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/maintenance/daily",
+      "schedule": "0 12 * * *"
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/contacts",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/track/:code",
+      "destination": "/index.html"
+    }
+  ]
+}

@@ -6,7 +6,11 @@ import { writable } from "./trips";
 import { pushLiveActivity, remoteWidgetsAvailable } from "./apns";
 import type { WidgetState } from "../../shared/contacts";
 
-type NotificationRow = { id: string; trip_id: string; installation_id: string; event: string; attempts: number; push_token: string | null; push_start_token: string | null; platform: string };
+type NotificationRow = {
+  id: string; trip_id: string; installation_id: string; event: string; attempts: number;
+  push_token: string | null; push_start_token: string | null; platform: string;
+  state: string; next_attempt_at: number; locked_until?: number | null;
+};
 type TripSnapshot = WidgetState;
 async function snapshot(tripId: string): Promise<TripSnapshot | null> {
   const trip = await database.collection("trips").doc(tripId).get();
@@ -136,36 +140,58 @@ export const notificationTransport = {
   },
 };
 let processing = false;
-export async function processNotifications() {
+async function claimNotification(reference: FirebaseFirestore.DocumentReference, now: number) {
+  return database.runTransaction(async transaction => {
+    const snapshot = await transaction.get(reference);
+    const job = snapshot.data() as NotificationRow | undefined;
+    if (!job) return undefined;
+    const eligible = (job.state === "pending" && Number(job.next_attempt_at) <= now) ||
+      (job.state === "processing" && Number(job.locked_until ?? 0) <= now);
+    if (!eligible) return undefined;
+    transaction.update(reference, { state: "processing", locked_until: now + 45000 });
+    return job;
+  });
+}
+
+export async function processNotifications(maxJobs = 20, maxWidgets = 30) {
   if (processing) return;
   processing = true;
   try {
-    const pendingJobs = await database.collection("notification_outbox").where("state", "==", "pending").get();
-    const dueJobs = pendingJobs.docs.filter(doc => Number(doc.data().next_attempt_at) <= Date.now()).slice(0, 20);
+    const [pendingJobs, processingJobs] = await Promise.all([
+      database.collection("notification_outbox").where("state", "==", "pending").limit(maxJobs * 4).get(),
+      database.collection("notification_outbox").where("state", "==", "processing").limit(maxJobs * 4).get(),
+    ]);
+    const now = Date.now();
+    const dueJobs = [
+      ...pendingJobs.docs.filter(doc => Number(doc.data().next_attempt_at) <= now),
+      ...processingJobs.docs.filter(doc => Number(doc.data().locked_until ?? 0) <= now),
+    ].slice(0, maxJobs);
     const jobs = await Promise.all(dueJobs.map(async doc => {
-      const job = doc.data() as NotificationRow;
+      const job = await claimNotification(doc.ref, Date.now());
+      if (!job) return undefined;
       const installation = await database.collection("installations").doc(job.installation_id).get();
       return { ...job, ref: doc.ref, ...(installation.data() as { push_token: string | null; push_start_token: string | null; platform: string } | undefined) };
     }));
-    for (const job of jobs) {
-      if (!job.push_token && !job.push_start_token) { await job.ref.update({ state: "unavailable" }); continue; }
+    for (const job of jobs.filter((value): value is NonNullable<typeof value> => !!value)) {
+      if (!job.push_token && !job.push_start_token) { await job.ref.update({ state: "unavailable", locked_until: null }); continue; }
       const state = await snapshot(job.trip_id);
-      if (!state || state.status === "expired") { await job.ref.update({ state: "unavailable" }); continue; }
+      if (!state || state.status === "expired") { await job.ref.update({ state: "unavailable", locked_until: null }); continue; }
       try {
         const accepted = job.event === "live-start"
           ? !!job.push_start_token && await pushLiveActivity(job.push_start_token, "start", state)
           : !!job.push_token && await notificationTransport.expo(job.push_token, state, job.event);
-        await job.ref.update({ state: accepted ? "accepted" : "unavailable" });
+        await job.ref.update({ state: accepted ? "accepted" : "unavailable", locked_until: null });
       } catch {
         await job.ref.update({
-          attempts: job.attempts + 1,
-          state: job.attempts >= 4 ? "failed" : "pending",
-          next_attempt_at: Date.now() + Math.min(60000, 5000 * 2 ** job.attempts),
+          attempts: (job.attempts ?? 0) + 1,
+          state: (job.attempts ?? 0) >= 4 ? "failed" : "pending",
+          locked_until: null,
+          next_attempt_at: Date.now() + Math.min(60000, 5000 * 2 ** (job.attempts ?? 0)),
         });
       }
     }
     if (remoteWidgetsAvailable()) {
-      const activitiesSnapshot = await database.collection("widget_subscriptions").where("last_sent_at", "<", Date.now() - 60000).limit(30).get();
+      const activitiesSnapshot = await database.collection("widget_subscriptions").where("last_sent_at", "<", Date.now() - 60000).limit(maxWidgets).get();
       const activities = activitiesSnapshot.docs.map(doc => ({ ...doc.data(), ref: doc.ref })) as
         ({ trip_id: string; installation_id: string; activity_id: string; push_token: string; ref: FirebaseFirestore.DocumentReference }[]);
       for (const activity of activities) {
