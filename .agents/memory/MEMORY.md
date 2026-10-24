@@ -7,3 +7,4 @@
 - [Tagalong driving](safe-walk-driving.md) — driving uses route estimates and live sharing, not navigation; preserve the 300 km cap and six-hour privacy window unless revisited.
 - [Tagalong video demo](tagalong-video-demo.md) — use the real app UI in an isolated simulated session; retry transient Expo startup responses and scale a standard phone viewport.
 - [Tagalong route naming](safe-walk-route-label.md) — call the lighting-informed option “Safest,” while keeping estimate and no-guarantee caveats.
+- [Tagalong Vercel hosting](tagalong-vercel-hosting.md) — use Vercel Hobby only with event-driven best-effort alerts; do not promise persistent five-second background timing.

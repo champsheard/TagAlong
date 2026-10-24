@@ -82,7 +82,7 @@ test("verification requires ownership, limits attempts, and never stores raw ide
   assert.equal((await call("/installations/confirm", "POST", { challengeId: challenge.data.challengeId, code: sentCode }, s.authToken)).status, 200);
   assert.equal((await call("/installations/confirm", "POST", { challengeId: challenge.data.challengeId, code: sentCode }, s.authToken)).status, 400);
   const other = await enroll();
-  const locked = await identities.beginVerification(identities.authenticateInstallation(other.authToken), { kind: "email", identifier: "attempts@example.test" });
+  const locked = await identities.beginVerification(await identities.authenticateInstallation(other.authToken), { kind: "email", identifier: "attempts@example.test" });
   for (let i = 0; i < 5; i++) assert.equal((await call("/installations/confirm", "POST", { challengeId: locked.challengeId, code: "000000" }, other.authToken)).status, 400);
   assert.equal((await call("/installations/confirm", "POST", { challengeId: locked.challengeId, code: sentCode }, other.authToken)).status, 400);
 });
@@ -124,8 +124,8 @@ test("app sharing needs both sender auth and trip write auth; pushes, inbox, and
   assert.equal((await call("/inbox", "GET", undefined, receiver.authToken)).data.trips[0].status, "help");
   assert.equal((await call(`/track/${t.shareCode}`)).data.status, "help");
   assert.equal((await call(sharePath, "POST", body, sender.authToken, { "X-Trip-Token": t.writeToken })).status, 409);
-  const jobs = await db.database.collection("notification_outbox").where("trip_id", "==", t.tripId).where("event", "==", "help").get();
-  assert.ok(!jobs.empty);
+  const jobs = await db.database.collection("notification_outbox").where("trip_id", "==", t.tripId).get();
+  assert.ok(jobs.docs.some(row => row.data().event === "help"));
   await notifications.processNotifications();
   assert.ok(pushDeliveries.some(delivery => delivery.event === "help" && delivery.status === "help"));
 
@@ -138,14 +138,14 @@ test("app sharing needs both sender auth and trip write auth; pushes, inbox, and
   await notifications.processNotifications();
   const beforeArrival = pushDeliveries.length;
   assert.equal((await call(`/trips/${arrivalTrip.tripId}/end`, "POST", { status: "arrived" }, arrivalTrip.writeToken)).status, 200);
-  const arrivalJobs = await db.database.collection("notification_outbox").where("trip_id", "==", arrivalTrip.tripId).where("event", "==", "arrived").get();
-  assert.ok(!arrivalJobs.empty);
+  const arrivalJobs = await db.database.collection("notification_outbox").where("trip_id", "==", arrivalTrip.tripId).get();
+  assert.ok(arrivalJobs.docs.some(row => row.data().event === "arrived"));
   await notifications.processNotifications();
   assert.deepEqual(pushDeliveries.slice(beforeArrival), [{ event: "arrived", status: "arrived" }]);
-  const acceptedJobs = await db.database.collection("notification_outbox").where("trip_id", "==", arrivalTrip.tripId).where("event", "==", "arrived").get();
-  assert.equal(acceptedJobs.docs[0].data().state, "accepted");
+  const acceptedJobs = await db.database.collection("notification_outbox").where("trip_id", "==", arrivalTrip.tripId).get();
+  assert.equal(acceptedJobs.docs.find(row => row.data().event === "arrived")?.data().state, "accepted");
   assert.equal((await call(`/trips/${arrivalTrip.tripId}/end`, "POST", { status: "arrived" }, arrivalTrip.writeToken)).status, 200);
-  assert.equal(acceptedJobs.size, 1);
+  assert.equal(acceptedJobs.docs.filter(row => row.data().event === "arrived").length, 1);
 
   await call("/installations/me", "DELETE", undefined, receiver.authToken);
   assert.equal((await db.database.collection("trip_recipients").where("installation_id", "==", receiver.installationId).get()).size, 0);

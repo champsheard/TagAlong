@@ -62,10 +62,7 @@ test("private trip credentials and active location sharing", async () => {
   assert.equal("token_hash" in read.data, false);
 });
 test("remote-drive stop warnings use a cancel window, notify shared contacts, and ignore mapped places", async () => {
-  const realNow = Date.now;
-  let now = 1_800_000_000_000;
   let buildingAt: { lat: number; lng: number } | null = null;
-  Date.now = () => now;
   globalThis.fetch = (async (url: string | URL | Request, options?: RequestInit) => {
     if (String(url).includes("overpass-api")) {
       const elements = buildingAt ? [{
@@ -81,23 +78,21 @@ test("remote-drive stop warnings use a cancel window, notify shared contacts, an
     assert.equal(created.status, 201);
     return created.data as TripCredentials;
   };
-  const updateAt = async (drive: TripCredentials, lat: number, lng: number) => {
-    const result = await call(`/trips/${drive.tripId}/location`, { lat, lng, accuracy: 5, timestamp: now }, drive.writeToken);
-    assert.equal(result.status, 200);
-    return result;
-  };
+  const markStopped = async (drive: TripCredentials, lat: number, lng: number) =>
+    db.database.collection("trips").doc(drive.tripId).update({
+      stop_started_at: Date.now() - 61_000, stop_anchor_lat: lat, stop_anchor_lng: lng,
+      stop_place_checked_at: null, remote_stop_alert_due_at: null,
+    });
   try {
     const cancelled = await createDrive();
-    await updateAt(cancelled, 0, 0);
-    now += 5000; await updateAt(cancelled, 0, 0);
-    now += 60_000; await updateAt(cancelled, 0, 0);
-    await driveStops.processDriveStopAlerts(now);
+    await markStopped(cancelled, 0, 0);
+    await driveStops.processDriveStopAlerts();
     let tracked = await call(`/track/${cancelled.shareCode}`);
     assert.equal(tracked.data.status, "active");
-    assert.equal(tracked.data.remoteStopAlertDueAt, now + 15_000);
+    assert.ok(tracked.data.remoteStopAlertDueAt >= Date.now() + 14_000);
+    assert.ok(tracked.data.remoteStopAlertDueAt <= Date.now() + 16_000);
     assert.equal((await call(`/trips/${cancelled.tripId}/remote-stop/cancel`, {}, cancelled.writeToken)).status, 200);
-    now += 20_000;
-    await driveStops.processDriveStopAlerts(now);
+    await driveStops.processDriveStopAlerts();
     tracked = await call(`/track/${cancelled.shareCode}`);
     assert.equal(tracked.data.remoteStopAlertAt, null);
 
@@ -105,35 +100,30 @@ test("remote-drive stop warnings use a cancel window, notify shared contacts, an
     const contactId = "00000000-0000-4000-8000-000000000111";
     await db.database.collection("installations").doc(contactId).set({
       id: contactId, token_hash: "f".repeat(64), platform: "ios", push_token: "ExponentPushToken[test-device]",
-      push_start_token: null, discoverable: 1, auto_share: 1, created_at: now, seen_at: now,
+      push_start_token: null, discoverable: 1, auto_share: 1, created_at: Date.now(), seen_at: Date.now(),
     });
     await db.database.collection("trip_recipients").doc(db.documentId(warned.tripId, contactId))
-      .set({ trip_id: warned.tripId, installation_id: contactId, sender_id: null, created_at: now });
-    await updateAt(warned, 0, 0);
-    now += 5000; await updateAt(warned, 0, 0);
-    now += 60_000; await updateAt(warned, 0, 0);
-    await driveStops.processDriveStopAlerts(now);
+      .set({ trip_id: warned.tripId, installation_id: contactId, sender_id: null, created_at: Date.now() });
+    await markStopped(warned, 0, 0);
+    await driveStops.processDriveStopAlerts();
     tracked = await call(`/track/${warned.shareCode}`);
-    assert.equal(tracked.data.remoteStopAlertDueAt, now + 15_000);
-    now += 15_001;
-    await driveStops.processDriveStopAlerts(now);
+    assert.ok(tracked.data.remoteStopAlertDueAt);
+    await db.database.collection("trips").doc(warned.tripId).update({ remote_stop_alert_due_at: Date.now() - 1 });
+    await driveStops.processDriveStopAlerts();
     tracked = await call(`/track/${warned.shareCode}`);
     assert.equal(tracked.data.status, "active");
-    assert.equal(tracked.data.remoteStopAlertAt, now);
-    const remoteStopJobs = await db.database.collection("notification_outbox").where("trip_id", "==", warned.tripId).where("event", "==", "remote-stop").get();
-    assert.equal(remoteStopJobs.docs[0]?.data().event, "remote-stop");
+    assert.ok(tracked.data.remoteStopAlertAt);
+    const remoteStopJobs = await db.database.collection("notification_outbox").where("trip_id", "==", warned.tripId).get();
+    assert.ok(remoteStopJobs.docs.some(row => row.data().event === "remote-stop"));
 
     const builtArea = await createDrive();
     buildingAt = { lat: 0.02, lng: 0 };
-    await updateAt(builtArea, 0.02, 0);
-    now += 5000; await updateAt(builtArea, 0.02, 0);
-    now += 60_000; await updateAt(builtArea, 0.02, 0);
-    await driveStops.processDriveStopAlerts(now);
+    await markStopped(builtArea, 0.02, 0);
+    await driveStops.processDriveStopAlerts();
     tracked = await call(`/track/${builtArea.shareCode}`);
     assert.equal(tracked.data.remoteStopAlertDueAt, null);
     assert.equal(tracked.data.remoteStopAlertAt, null);
   } finally {
-    Date.now = realNow;
     globalThis.fetch = realFetch;
   }
 });

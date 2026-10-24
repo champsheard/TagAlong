@@ -124,14 +124,18 @@ export async function updateInstallation(installation: Installation, body: { pus
 export async function removeInstallation(installation: Installation) {
   const relatedCollections = ["contact_identifiers", "trip_recipients", "widget_subscriptions", "notification_outbox"];
   for (const name of relatedCollections) {
-    const field = name === "trip_recipients" || name === "widget_subscriptions" || name === "notification_outbox"
-      ? "installation_id" : "installation_id";
-    const rows = await database.collection(name).where(field, "==", installation.id).get();
+    const rows = await database.collection(name).where("installation_id", "==", installation.id).get();
     for (let i = 0; i < rows.docs.length; i += 400) {
       const batch = database.batch();
       for (const row of rows.docs.slice(i, i + 400)) batch.delete(row.ref);
       await batch.commit();
     }
+  }
+  const sentShares = await database.collection("trip_recipients").where("sender_id", "==", installation.id).get();
+  for (let i = 0; i < sentShares.docs.length; i += 400) {
+    const batch = database.batch();
+    for (const row of sentShares.docs.slice(i, i + 400)) batch.update(row.ref, { sender_id: null });
+    await batch.commit();
   }
   await database.collection("installations").doc(installation.id).delete();
   return { ok: true };

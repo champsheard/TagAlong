@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p server/tsconfig.json",
     "test": "tsx --test server/tests/*.test.ts",
     "notifications:test": "tsx server/scripts/send-test-notifications.ts",
+    "migrate:firestore": "tsx scripts/migrate-sqlite-to-firestore.ts",
     "build": "npm run export:web",
     "start": "npm run start:server"
   },

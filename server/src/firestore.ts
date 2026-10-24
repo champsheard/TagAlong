@@ -83,12 +83,62 @@ async function deleteExpired(query: Query<DocumentData>) {
   }
 }
 
+async function deleteExpiredTrips(now: number) {
+  let deleted = 0;
+  while (true) {
+    const expired = await database.collection("trips").where("expires_at", "<=", now).limit(100).get();
+    if (expired.empty) return deleted;
+    for (const trip of expired.docs) {
+      for (const collectionName of ["trip_recipients", "widget_subscriptions", "notification_outbox"]) {
+        const children = await database.collection(collectionName).where("trip_id", "==", trip.id).get();
+        for (let i = 0; i < children.docs.length; i += 400) {
+          const batch = database.batch();
+          for (const child of children.docs.slice(i, i + 400)) batch.delete(child.ref);
+          await batch.commit();
+        }
+      }
+    }
+    const batch = database.batch();
+    for (const trip of expired.docs) batch.delete(trip.ref);
+    await batch.commit();
+    deleted += expired.size;
+  }
+}
+
+async function deleteExpiredInstallations(now: number) {
+  let deleted = 0;
+  while (true) {
+    const expired = await database.collection("installations").where("seen_at", "<", now - 90 * 86400000).limit(100).get();
+    if (expired.empty) return deleted;
+    for (const installation of expired.docs) {
+      for (const collectionName of ["contact_identifiers", "trip_recipients", "widget_subscriptions", "notification_outbox"]) {
+        const children = await database.collection(collectionName).where("installation_id", "==", installation.id).get();
+        for (let i = 0; i < children.docs.length; i += 400) {
+          const batch = database.batch();
+          for (const child of children.docs.slice(i, i + 400)) batch.delete(child.ref);
+          await batch.commit();
+        }
+      }
+      const shares = await database.collection("trip_recipients").where("sender_id", "==", installation.id).get();
+      for (let i = 0; i < shares.docs.length; i += 400) {
+        const batch = database.batch();
+        for (const share of shares.docs.slice(i, i + 400)) batch.update(share.ref, { sender_id: null });
+        await batch.commit();
+      }
+    }
+    const batch = database.batch();
+    for (const installation of expired.docs) batch.delete(installation.ref);
+    await batch.commit();
+    deleted += expired.size;
+  }
+}
+
 export async function purgeExpired(now = Date.now()) {
   const tasks = [
-    deleteExpired(database.collection("trips").where("expires_at", "<=", now)),
+    deleteExpiredTrips(now),
     deleteExpired(database.collection("cache").where("expires_at", "<=", now)),
     deleteExpired(database.collection("verification_challenges").where("expires_at", "<=", now)),
-    deleteExpired(database.collection("installations").where("seen_at", "<", now - 90 * 86400000)),
+    deleteExpiredInstallations(now),
     deleteExpired(database.collection("notification_outbox").where("created_at", "<", now - 86400000)),
     deleteExpired(database.collection("arrival_feedback").where("expires_at", "<=", now)),
   ];
