@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { ArrivalFeedbackPayload, ArrivalFeedbackReport } from "../../shared/types";
-import { database } from "./db.js";
+import { database } from "./firestore.js";
 import { HttpError } from "./errors.js";
 
 const retentionMs = 90 * 24 * 60 * 60 * 1000;
@@ -28,7 +28,7 @@ function parseReport(value: unknown): ArrivalFeedbackReport {
   };
 }
 
-export function submitArrivalFeedback(body: unknown): { ok: true } {
+export async function submitArrivalFeedback(body: unknown): Promise<{ ok: true }> {
   if (!isRecord(body) || !onlyKeys(body, ["routeRating", "reports"]) || !validRating(body.routeRating)) {
     throw new HttpError(400, "Choose a route rating from 1 to 5.");
   }
@@ -41,8 +41,13 @@ export function submitArrivalFeedback(body: unknown): { ok: true } {
     reports: rawReports.map(parseReport),
   };
   const now = Date.now();
-  database.prepare(
-    "INSERT INTO arrival_feedback(id,route_rating,reports,created_at,expires_at) VALUES(?,?,?,?,?)",
-  ).run(randomUUID(), payload.routeRating, JSON.stringify(payload.reports), now, now + retentionMs);
+  const id = randomUUID();
+  await database.collection("arrival_feedback").doc(id).create({
+    id,
+    route_rating: payload.routeRating,
+    reports: JSON.stringify(payload.reports),
+    created_at: now,
+    expires_at: now + retentionMs,
+  });
   return { ok: true };
 }

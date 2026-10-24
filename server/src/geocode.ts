@@ -1,4 +1,4 @@
-import { cached, cacheValue } from "./db";
+import { cached, cacheValue } from "./firestore";
 import { HttpError } from "./errors";
 import type { Place } from "../../shared/types";
 import { validPoint } from "./validation";
@@ -12,7 +12,7 @@ function nearestFirst(places: Place[], near?: { lat: number; lng: number }) {
     ? [...places].sort((a, b) => distance(near, a) - distance(near, b) || a.label.localeCompare(b.label))
     : places;
 }
-export function geocode(query: string, near?: unknown): Promise<Place[]> {
+export async function geocode(query: string, near?: unknown): Promise<Place[]> {
   const q = query.trim();
   if (q.length < 3 || q.length > 160) throw new HttpError(400, "Search for an address using 3–160 characters.");
   if (near !== undefined && !validPoint(near)) throw new HttpError(400, "Choose a valid location to search nearby.");
@@ -21,8 +21,8 @@ export function geocode(query: string, near?: unknown): Promise<Place[]> {
   // coordinates stay in the request body and only sort this response in memory.
   const cell = searchNear ? { lat: Math.round(searchNear.lat * 10) / 10, lng: Math.round(searchNear.lng * 10) / 10 } : undefined;
   const key = `geocode:${q.toLowerCase()}:${cell ? `${cell.lat},${cell.lng}` : "global"}`;
-  const hit = cached<Place[]>(key);
-  if (hit) return Promise.resolve(nearestFirst(hit, searchNear));
+  const hit = await cached<Place[]>(key);
+  if (hit) return nearestFirst(hit, searchNear);
   const inFlight = active.get(key);
   if (inFlight) return inFlight.then(places => nearestFirst(places, searchNear));
   if (pending >= 25) throw new HttpError(429, "Address search is busy. Please try again shortly.");
@@ -54,7 +54,7 @@ export function geocode(query: string, near?: unknown): Promise<Place[]> {
       if (!response.ok) throw new Error("provider unavailable");
       const raw = await response.json() as { lat: string; lon: string; display_name: string }[];
       const places = raw.map(p => ({ lat: Number(p.lat), lng: Number(p.lon), label: p.display_name })).filter(validPoint);
-      cacheValue(key, places, 86400000); return places;
+      await cacheValue(key, places, 86400000); return places;
     } catch { throw new HttpError(502, "Address search is temporarily unavailable. Please retry or use Demo walk."); }
     finally { pending--; active.delete(key); }
   });

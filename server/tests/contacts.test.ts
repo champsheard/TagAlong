@@ -5,10 +5,10 @@ import type { Server } from "node:http";
 import { canonicalIdentifier, normalizeIdentifier, rankContacts } from "../../shared/contacts";
 import { parseWidgetState } from "../../lib/widgetState";
 
-process.env.DATABASE_PATH = ":memory:";
+process.env.FIRESTORE_COLLECTION_PREFIX = `test_contacts_${process.pid}_`;
 process.env.SESSION_SECRET = "test-only-not-a-production-secret";
 let server: Server, origin: string;
-let db: typeof import("../src/db");
+let db: typeof import("../src/firestore");
 let identities: typeof import("../src/identities");
 let notifications: typeof import("../src/notifications");
 let gateway: typeof import("../src/verificationGateway");
@@ -17,7 +17,7 @@ const pushDeliveries: { event: string; status: string }[] = [];
 const geometry = { type: "LineString", coordinates: [[0, 0], [0.001, 0]] };
 before(async () => {
   const { app } = await import("../src/app");
-  db = await import("../src/db"); identities = await import("../src/identities");
+  db = await import("../src/firestore"); identities = await import("../src/identities");
   notifications = await import("../src/notifications"); gateway = await import("../src/verificationGateway");
   gateway.verificationGateway.capabilities = async () => ({ at: Date.now(), sms: true, email: true });
   gateway.verificationGateway.send = async (_kind, _destination, code) => { sentCode = code; sends++; };
@@ -28,7 +28,7 @@ before(async () => {
   await new Promise<void>(resolve => server.once("listening", resolve));
   origin = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
 });
-after(() => { server.close(); db.database.close(); });
+after(async () => { server.close(); await db.clearPrefixedCollections(); });
 async function call(path: string, method = "GET", body?: unknown, token?: string, extra: Record<string, string> = {}) {
   const response = await fetch(origin + "/api" + path, { method,
     headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...extra },
@@ -40,7 +40,7 @@ async function enroll(platform = "ios") {
   const r = await call("/installations", "POST", { platform }); assert.equal(r.status, 201); return r.data;
 }
 async function verify(s: { authToken: string }, email: string) {
-  const begin = await identities.beginVerification(identities.authenticateInstallation(s.authToken), { kind: "email", identifier: email });
+  const begin = await identities.beginVerification(await identities.authenticateInstallation(s.authToken), { kind: "email", identifier: email });
   return call("/installations/confirm", "POST", { challengeId: begin.challengeId, code: sentCode }, s.authToken);
 }
 const hash = (kind: "email" | "phone", value: string) => createHash("sha256").update(canonicalIdentifier(kind, value)).digest("hex");
@@ -58,7 +58,7 @@ test("normalization, country handling, and installed-first contact ordering", ()
 });
 test("device credentials are hashed and unauthenticated matching is forbidden", async () => {
   const s = await enroll();
-  const row = db.database.prepare("SELECT token_hash FROM installations WHERE id = ?").get(s.installationId) as { token_hash: string };
+  const row = (await db.database.collection("installations").doc(s.installationId).get()).data() as { token_hash: string };
   assert.notEqual(row.token_hash, s.authToken);
   const profile = await call("/installations/me", "GET", undefined, s.authToken);
   assert.equal(profile.data.autoShare, true);
@@ -75,7 +75,7 @@ test("verification requires ownership, limits attempts, and never stores raw ide
   const challenge = await call("/installations/verify", "POST", { kind: "email", identifier: "owner@example.test" }, s.authToken);
   assert.equal(challenge.status, 200); assert.match(sentCode, /^\d{6}$/);
   assert.equal(challenge.data.code, undefined);
-  const row = db.database.prepare("SELECT * FROM verification_challenges WHERE id = ?").get(challenge.data.challengeId);
+  const row = (await db.database.collection("verification_challenges").doc(challenge.data.challengeId).get()).data();
   assert.ok(!JSON.stringify(row).includes("owner@example.test"));
   assert.ok(!JSON.stringify(row).includes(`"${sentCode}"`));
   assert.equal((await call("/installations/confirm", "POST", { challengeId: challenge.data.challengeId, code: "000000" }, s.authToken)).status, 400);
@@ -100,7 +100,7 @@ test("matching finds verified mobile devices only, and respects discovery opt-ou
   await call("/installations/me", "DELETE", undefined, phone.authToken);
   assert.equal((await call("/contacts/discover", "POST", { hashes: [digest] }, seeker.authToken)).data.matches.length, 0);
   assert.equal((await call("/installations/me", "GET", undefined, phone.authToken)).status, 401);
-  assert.equal((db.database.prepare("SELECT COUNT(*) AS n FROM contact_identifiers WHERE installation_id = ?").get(phone.installationId) as { n: number }).n, 0);
+  assert.equal((await db.database.collection("contact_identifiers").where("installation_id", "==", phone.installationId).get()).size, 0);
 });
 test("app sharing needs both sender auth and trip write auth; pushes, inbox, and help status stay connected", async () => {
   const sender = await enroll(), receiver = await enroll("android");
@@ -124,8 +124,8 @@ test("app sharing needs both sender auth and trip write auth; pushes, inbox, and
   assert.equal((await call("/inbox", "GET", undefined, receiver.authToken)).data.trips[0].status, "help");
   assert.equal((await call(`/track/${t.shareCode}`)).data.status, "help");
   assert.equal((await call(sharePath, "POST", body, sender.authToken, { "X-Trip-Token": t.writeToken })).status, 409);
-  const job = db.database.prepare("SELECT * FROM notification_outbox WHERE trip_id = ? AND event = 'help'").get(t.tripId);
-  assert.ok(job);
+  const jobs = await db.database.collection("notification_outbox").where("trip_id", "==", t.tripId).where("event", "==", "help").get();
+  assert.ok(!jobs.empty);
   await notifications.processNotifications();
   assert.ok(pushDeliveries.some(delivery => delivery.event === "help" && delivery.status === "help"));
 
@@ -138,16 +138,17 @@ test("app sharing needs both sender auth and trip write auth; pushes, inbox, and
   await notifications.processNotifications();
   const beforeArrival = pushDeliveries.length;
   assert.equal((await call(`/trips/${arrivalTrip.tripId}/end`, "POST", { status: "arrived" }, arrivalTrip.writeToken)).status, 200);
-  const arrivalJob = db.database.prepare("SELECT state FROM notification_outbox WHERE trip_id = ? AND event = 'arrived'").get(arrivalTrip.tripId) as { state: string } | undefined;
-  assert.ok(arrivalJob);
+  const arrivalJobs = await db.database.collection("notification_outbox").where("trip_id", "==", arrivalTrip.tripId).where("event", "==", "arrived").get();
+  assert.ok(!arrivalJobs.empty);
   await notifications.processNotifications();
   assert.deepEqual(pushDeliveries.slice(beforeArrival), [{ event: "arrived", status: "arrived" }]);
-  assert.equal((db.database.prepare("SELECT state FROM notification_outbox WHERE trip_id = ? AND event = 'arrived'").get(arrivalTrip.tripId) as { state: string }).state, "accepted");
+  const acceptedJobs = await db.database.collection("notification_outbox").where("trip_id", "==", arrivalTrip.tripId).where("event", "==", "arrived").get();
+  assert.equal(acceptedJobs.docs[0].data().state, "accepted");
   assert.equal((await call(`/trips/${arrivalTrip.tripId}/end`, "POST", { status: "arrived" }, arrivalTrip.writeToken)).status, 200);
-  assert.equal((db.database.prepare("SELECT COUNT(*) AS count FROM notification_outbox WHERE trip_id = ? AND event = 'arrived'").get(arrivalTrip.tripId) as { count: number }).count, 1);
+  assert.equal(acceptedJobs.size, 1);
 
   await call("/installations/me", "DELETE", undefined, receiver.authToken);
-  assert.equal((db.database.prepare("SELECT COUNT(*) AS n FROM trip_recipients WHERE installation_id = ?").get(receiver.installationId) as { n: number }).n, 0);
+  assert.equal((await db.database.collection("trip_recipients").where("installation_id", "==", receiver.installationId).get()).size, 0);
 });
 test("delivery outages retry without claiming delivery, while link sharing still works", async () => {
   const sender = await enroll(), receiver = await enroll();
@@ -158,7 +159,7 @@ test("delivery outages retry without claiming delivery, while link sharing still
   const transport = notifications.notificationTransport.expo;
   notifications.notificationTransport.expo = async () => { throw new Error("Simulated outage"); };
   await notifications.processNotifications(); notifications.notificationTransport.expo = transport;
-  const row = db.database.prepare("SELECT state,attempts FROM notification_outbox WHERE trip_id = ?").get(t.tripId) as { state: string; attempts: number };
+  const row = (await db.database.collection("notification_outbox").where("trip_id", "==", t.tripId).limit(1).get()).docs[0].data() as { state: string; attempts: number };
   assert.equal(row.state, "pending"); assert.equal(row.attempts, 1);
   assert.equal((await call(`/track/${t.shareCode}`)).status, 200);
 });
@@ -171,7 +172,7 @@ test("widget registration is private and expires with its trip; payload validati
   assert.equal((await call(`/track/${t.shareCode}/widget`, "POST", { ...body, pushToken: "bad" }, s.authToken)).status, 400);
   const state = { shareCode: t.shareCode, status: "active", etaAt: t.etaAt, lastUpdateAt: null, expiresAt: t.expiresAt, demo: true };
   assert.equal(parseWidgetState(state)?.demo, true); assert.equal(parseWidgetState({ ...state, shareCode: "guess" }), null);
-  db.database.prepare("UPDATE trips SET expires_at = ? WHERE id = ?").run(Date.now() - 1, t.tripId); db.purgeExpired();
-  assert.equal((db.database.prepare("SELECT COUNT(*) AS n FROM widget_subscriptions WHERE activity_id = ?").get(body.activityId) as { n: number }).n, 0);
+  await db.database.collection("trips").doc(t.tripId).update({ expires_at: Date.now() - 1 }); await db.purgeExpired();
+  assert.equal((await db.database.collection("widget_subscriptions").where("activity_id", "==", body.activityId).get()).size, 0);
   assert.ok(sends > 0);
 });

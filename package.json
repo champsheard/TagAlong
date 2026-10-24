@@ -43,6 +43,7 @@
     "expo-task-manager": "~57.0.21",
     "expo-widgets": "~57.0.23",
     "express": "^5.2.1",
+    "firebase-admin": "^14.5.0",
     "leaflet": "^1.9.4",
     "libphonenumber-js": "^1.13.14",
     "react": "19.2.3",

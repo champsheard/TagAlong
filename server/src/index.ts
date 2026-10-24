@@ -1,11 +1,11 @@
 import { app } from "./app.js";
-import { purgeExpired } from "./db.js";
+import { purgeExpired } from "./firestore.js";
 import { startNotificationWorker } from "./notifications";
 import { startDriveStopMonitor } from "./driveStopMonitor.js";
 
 const port = Number(process.env.PORT ?? 5000);
-purgeExpired();
-const purgeTimer = setInterval(() => purgeExpired(), 3600000);
+void purgeExpired().catch(() => {});
+const purgeTimer = setInterval(() => { void purgeExpired().catch(() => {}); }, 3600000);
 purgeTimer.unref();
 startNotificationWorker();
 startDriveStopMonitor();

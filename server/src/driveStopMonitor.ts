@@ -1,6 +1,6 @@
 import { distance } from "../../shared/geo";
 import type { Point } from "../../shared/types";
-import { cached, cacheValue, database } from "./db.js";
+import { cached, cacheValue, database } from "./firestore.js";
 import { scheduleTripUpdate } from "./notifications.js";
 
 const STOP_RADIUS_METERS = 35;
@@ -33,34 +33,46 @@ function accurate(position: PositionLike) {
   return position.accuracy !== null && Number.isFinite(position.accuracy) && position.accuracy <= 60;
 }
 
-function resetCandidate(id: string, now: number) {
-  database.prepare(`UPDATE trips SET
-    stop_started_at = NULL, stop_anchor_lat = NULL, stop_anchor_lng = NULL,
-    stop_place_checked_at = NULL, stop_has_mapped_place = NULL, remote_stop_alert_due_at = NULL,
-    remote_stop_alert_cleared_at = CASE
-      WHEN remote_stop_alert_at IS NOT NULL AND remote_stop_alert_cleared_at IS NULL THEN ?
-      ELSE remote_stop_alert_cleared_at END
-    WHERE id = ?`).run(now, id);
+async function resetCandidate(id: string, now: number) {
+  const reference = database.collection("trips").doc(id);
+  await database.runTransaction(async transaction => {
+    const snapshot = await transaction.get(reference);
+    const row = snapshot.data();
+    if (!row) return;
+    transaction.update(reference, {
+      stop_started_at: null, stop_anchor_lat: null, stop_anchor_lng: null,
+      stop_place_checked_at: null, stop_has_mapped_place: null, remote_stop_alert_due_at: null,
+      remote_stop_alert_cleared_at: row.remote_stop_alert_at != null && row.remote_stop_alert_cleared_at == null
+        ? now : row.remote_stop_alert_cleared_at,
+    });
+  });
 }
 
-export function recordDriveStopLocation(id: string, previous: PositionLike | null, current: PositionLike, now = Date.now()) {
+export async function recordDriveStopLocation(id: string, previous: PositionLike | null, current: PositionLike, now = Date.now()) {
   if (!accurate(current)) return;
-  const row = database.prepare(`SELECT stop_started_at,stop_anchor_lat,stop_anchor_lng
-    FROM trips WHERE id = ? AND status = 'active' AND travel_mode = 'driving' AND demo = 0`)
-    .get(id) as { stop_started_at: number | null; stop_anchor_lat: number | null; stop_anchor_lng: number | null } | undefined;
-  if (!row) return;
+  const reference = database.collection("trips").doc(id);
+  const snapshot = await reference.get();
+  const row = snapshot.data() as { status: string; travel_mode: string; demo: number; stop_started_at: number | null; stop_anchor_lat: number | null; stop_anchor_lng: number | null } | undefined;
+  if (!row || row.status !== "active" || row.travel_mode !== "driving" || row.demo) return;
 
   if (row.stop_started_at === null || row.stop_anchor_lat === null || row.stop_anchor_lng === null) {
     if (!previous || !accurate(previous) || distance(previous, current) > STOP_RADIUS_METERS) return;
-    database.prepare(`UPDATE trips SET stop_started_at = ?, stop_anchor_lat = ?, stop_anchor_lng = ?,
-      stop_place_checked_at = NULL, stop_has_mapped_place = NULL, remote_stop_alert_due_at = NULL
-      WHERE id = ? AND status = 'active' AND stop_started_at IS NULL`)
-      .run(now, current.lat, current.lng, id);
+    await database.runTransaction(async transaction => {
+      const latest = await transaction.get(reference);
+      const currentRow = latest.data();
+      if (currentRow?.status === "active" && currentRow.travel_mode === "driving" && !currentRow.demo &&
+          currentRow.stop_started_at == null) {
+        transaction.update(reference, {
+          stop_started_at: now, stop_anchor_lat: current.lat, stop_anchor_lng: current.lng,
+          stop_place_checked_at: null, stop_has_mapped_place: null, remote_stop_alert_due_at: null,
+        });
+      }
+    });
     return;
   }
 
   if (distance({ lat: row.stop_anchor_lat, lng: row.stop_anchor_lng }, current) > STOP_RADIUS_METERS) {
-    resetCandidate(id, now);
+    await resetCandidate(id, now);
   }
 }
 
@@ -73,7 +85,7 @@ function cellFor(point: Point) {
 
 async function loadMappedPlaces(point: Point): Promise<OsmPlaces | null> {
   const cell = cellFor(point);
-  const hit = cached<OsmPlaces>(cell.key);
+  const hit = await cached<OsmPlaces>(cell.key);
   if (hit) return hit;
   if ((failedPlaces.get(cell.key) ?? 0) > Date.now()) return null;
   const inFlight = pendingPlaces.get(cell.key);
@@ -99,7 +111,7 @@ async function loadMappedPlaces(point: Point): Promise<OsmPlaces | null> {
       if (!response.ok) throw new Error("Map data unavailable");
       const data = await response.json() as OsmPlaces & { remark?: string };
       if (!Array.isArray(data.elements) || data.remark) throw new Error("Incomplete map data");
-      cacheValue(cell.key, data, BUILDING_CACHE_MS);
+      await cacheValue(cell.key, data, BUILDING_CACHE_MS);
       failedPlaces.delete(cell.key);
       return data;
     } catch {
@@ -129,9 +141,9 @@ async function hasNearbyMappedPlace(point: Point): Promise<boolean | null> {
   });
 }
 
-export function driveStopAlertState(id: string) {
-  const row = database.prepare(`SELECT remote_stop_alert_due_at,remote_stop_alert_at,remote_stop_alert_cleared_at
-    FROM trips WHERE id = ?`).get(id) as {
+export async function driveStopAlertState(id: string) {
+  const snapshot = await database.collection("trips").doc(id).get();
+  const row = snapshot.data() as {
     remote_stop_alert_due_at: number | null;
     remote_stop_alert_at: number | null;
     remote_stop_alert_cleared_at: number | null;
@@ -147,33 +159,51 @@ export async function processDriveStopAlerts(now = Date.now()) {
   if (processing) return;
   processing = true;
   try {
-    const candidates = database.prepare(`SELECT id,stop_started_at,stop_anchor_lat,stop_anchor_lng
-      FROM trips WHERE status = 'active' AND expires_at > ? AND travel_mode = 'driving' AND demo = 0
-        AND stop_started_at <= ? AND stop_place_checked_at IS NULL AND remote_stop_alert_due_at IS NULL
-      ORDER BY stop_started_at LIMIT 3`).all(now, now - STOP_DURATION_MS) as StopCandidate[];
+    const activeTrips = await database.collection("trips").where("status", "==", "active").get();
+    const candidates = activeTrips.docs.map(document => document.data() as StopCandidate & {
+      status: string; expires_at: number; travel_mode: string; demo: number;
+      stop_place_checked_at: number | null; remote_stop_alert_due_at: number | null;
+    }).filter(row => row.expires_at > now && row.travel_mode === "driving" && !row.demo &&
+      row.stop_started_at <= now - STOP_DURATION_MS && row.stop_place_checked_at === null && row.remote_stop_alert_due_at === null)
+      .sort((a, b) => a.stop_started_at - b.stop_started_at).slice(0, 3);
 
     for (const candidate of candidates) {
       const remote = await hasNearbyMappedPlace({ lat: candidate.stop_anchor_lat, lng: candidate.stop_anchor_lng });
       const checkedAt = Date.now();
       const hasPlace = remote === null ? -1 : remote ? 1 : 0;
       const dueAt = remote === false ? checkedAt + CANCEL_WINDOW_MS : null;
-      database.prepare(`UPDATE trips SET stop_place_checked_at = ?, stop_has_mapped_place = ?,
-        remote_stop_alert_due_at = ?
-        WHERE id = ? AND status = 'active' AND expires_at > ? AND stop_started_at = ? AND stop_place_checked_at IS NULL`)
-        .run(checkedAt, hasPlace, dueAt, candidate.id, checkedAt, candidate.stop_started_at);
+      const reference = database.collection("trips").doc(candidate.id);
+      await database.runTransaction(async transaction => {
+        const current = await transaction.get(reference);
+        const row = current.data();
+        if (row?.status === "active" && row.expires_at > checkedAt && row.stop_started_at === candidate.stop_started_at &&
+            row.stop_place_checked_at === null) {
+          transaction.update(reference, { stop_place_checked_at: checkedAt, stop_has_mapped_place: hasPlace, remote_stop_alert_due_at: dueAt });
+        }
+      });
     }
 
     const dueCheckAt = Date.now();
-    const due = database.prepare(`SELECT id FROM trips
-      WHERE status = 'active' AND expires_at > ? AND travel_mode = 'driving' AND demo = 0
-        AND remote_stop_alert_due_at IS NOT NULL AND remote_stop_alert_due_at <= ?
-      ORDER BY remote_stop_alert_due_at LIMIT 20`).all(dueCheckAt, dueCheckAt) as { id: string }[];
+    const due = activeTrips.docs.map(document => ({ id: document.id, ...document.data() } as {
+      id: string; expires_at: number; travel_mode: string; demo: number; remote_stop_alert_due_at: number | null;
+    }))
+      .filter(row => row.expires_at > dueCheckAt && row.travel_mode === "driving" && !row.demo &&
+        row.remote_stop_alert_due_at != null && row.remote_stop_alert_due_at <= dueCheckAt)
+      .sort((a, b) => Number(a.remote_stop_alert_due_at) - Number(b.remote_stop_alert_due_at)).slice(0, 20);
     for (const row of due) {
       const sentAt = Date.now();
-      const result = database.prepare(`UPDATE trips SET remote_stop_alert_due_at = NULL,
-        remote_stop_alert_at = ?, remote_stop_alert_cleared_at = NULL
-        WHERE id = ? AND status = 'active' AND expires_at > ? AND remote_stop_alert_due_at <= ?`).run(sentAt, row.id, sentAt, sentAt);
-      if (result.changes) scheduleTripUpdate(row.id, "remote-stop");
+      const reference = database.collection("trips").doc(row.id);
+      const claimed = await database.runTransaction(async transaction => {
+        const current = await transaction.get(reference);
+        const latest = current.data();
+        if (!latest || latest.status !== "active" || latest.expires_at <= sentAt ||
+            latest.remote_stop_alert_due_at == null || latest.remote_stop_alert_due_at > sentAt) return false;
+        transaction.update(reference, {
+          remote_stop_alert_due_at: null, remote_stop_alert_at: sentAt, remote_stop_alert_cleared_at: null,
+        });
+        return true;
+      });
+      if (claimed) await scheduleTripUpdate(row.id, "remote-stop");
     }
   } finally {
     processing = false;

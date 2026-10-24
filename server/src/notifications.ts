@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { database } from "./db";
+import { database, documentId } from "./firestore";
 import { HttpError } from "./errors";
 import { installationProfile, type Installation } from "./identities";
 import { writable } from "./trips";
@@ -8,70 +8,98 @@ import type { WidgetState } from "../../shared/contacts";
 
 type NotificationRow = { id: string; trip_id: string; installation_id: string; event: string; attempts: number; push_token: string | null; push_start_token: string | null; platform: string };
 type TripSnapshot = WidgetState;
-function snapshot(tripId: string): TripSnapshot | null {
-  const t = database.prepare("SELECT id,share_code,status,eta_at,last_update_at,expires_at,demo,travel_mode FROM trips WHERE id = ?")
-    .get(tripId) as { id: string; share_code: string; status: WidgetState["status"]; eta_at: number; last_update_at: number | null; expires_at: number; demo: number; travel_mode: WidgetState["travelMode"] } | undefined;
+async function snapshot(tripId: string): Promise<TripSnapshot | null> {
+  const trip = await database.collection("trips").doc(tripId).get();
+  const t = trip.data() as { id: string; share_code: string; status: WidgetState["status"]; eta_at: number; last_update_at: number | null; expires_at: number; demo: number; travel_mode: WidgetState["travelMode"] } | undefined;
   return t ? { shareCode: t.share_code, status: t.expires_at <= Date.now() ? "expired" : t.status, etaAt: t.eta_at, lastUpdateAt: t.last_update_at, expiresAt: t.expires_at, demo: !!t.demo, travelMode: t.travel_mode } : null;
 }
-function enqueue(tripId: string, installationId: string, event: string) {
-  database.prepare("INSERT INTO notification_outbox(id,trip_id,installation_id,event,next_attempt_at,created_at) VALUES(?,?,?,?,?,?)")
-    .run(randomUUID(), tripId, installationId, event, Date.now(), Date.now());
+async function enqueue(tripId: string, installationId: string, event: string) {
+  const id = randomUUID(), now = Date.now();
+  await database.collection("notification_outbox").doc(id).create({
+    id, trip_id: tripId, installation_id: installationId, event,
+    state: "pending", attempts: 0, next_attempt_at: now, created_at: now,
+  });
 }
-export function shareToInstallations(tripId: string, writeToken: string | undefined, sender: Installation, ids: unknown) {
-  const trip = writable(tripId, writeToken);
+export async function shareToInstallations(tripId: string, writeToken: string | undefined, sender: Installation, ids: unknown) {
+  const trip = await writable(tripId, writeToken);
   if (trip.status !== "active") throw new HttpError(409, "Share an active trip. This trip has ended.");
-  if (!installationProfile(sender).verifiedKinds.length) throw new HttpError(403, "Verify your phone or email before sharing to app contacts.");
+  if (!(await installationProfile(sender)).verifiedKinds.length) throw new HttpError(403, "Verify your phone or email before sharing to app contacts.");
   if (!Array.isArray(ids) || !ids.length || ids.length > 250 || ids.some(id => typeof id !== "string" || !/^[a-f0-9-]{36}$/.test(id))) throw new HttpError(400, "Choose up to 250 app devices.");
   let sharedCount = 0, notificationsQueued = 0;
   const recipients = [...new Set(ids)] as string[];
   for (const id of recipients) {
-    const receiver = database.prepare(`SELECT * FROM installations WHERE id = ? AND discoverable = 1 AND platform IN ('ios','android')
-      AND seen_at > ? AND EXISTS (SELECT 1 FROM contact_identifiers WHERE installation_id = ?)`)
-      .get(id, Date.now() - 30 * 86400000, id) as Installation | undefined;
+    const receiverSnapshot = await database.collection("installations").doc(id).get();
+    const receiver = receiverSnapshot.data() as Installation | undefined;
     if (!receiver || receiver.id === sender.id) continue;
-    const old = database.prepare("SELECT created_at FROM trip_recipients WHERE trip_id = ? AND installation_id = ?").get(tripId, id) as { created_at: number } | undefined;
+    const identifiers = await database.collection("contact_identifiers").where("installation_id", "==", id).limit(1).get();
+    if (!receiver.discoverable || !["ios", "android"].includes(receiver.platform) ||
+        receiver.seen_at <= Date.now() - 30 * 86400000 || identifiers.empty) continue;
+    const recipientRef = database.collection("trip_recipients").doc(documentId(tripId, id));
+    const oldSnapshot = await recipientRef.get();
+    const old = oldSnapshot.data() as { created_at: number } | undefined;
     if (old && Date.now() - old.created_at < 60000) { sharedCount++; continue; }
-    database.prepare("INSERT OR REPLACE INTO trip_recipients(trip_id,installation_id,sender_id,created_at) VALUES(?,?,?,?)")
-      .run(tripId, id, sender.id, Date.now());
+    await recipientRef.set({ trip_id: tripId, installation_id: id, sender_id: sender.id, created_at: Date.now() });
     sharedCount++;
-    if (receiver.push_token) { enqueue(tripId, id, "shared"); notificationsQueued++; }
-    if (receiver.push_start_token && remoteWidgetsAvailable()) enqueue(tripId, id, "live-start");
+    if (receiver.push_token) { await enqueue(tripId, id, "shared"); notificationsQueued++; }
+    if (receiver.push_start_token && remoteWidgetsAvailable()) await enqueue(tripId, id, "live-start");
   }
   if (!sharedCount) throw new HttpError(404, "This contact is no longer enrolled. Share the private link instead.");
   return { sharedCount, notificationsQueued };
 }
-export function receivedTrips(installation: Installation) {
-  return database.prepare(`SELECT t.share_code AS shareCode,t.status,t.started_at AS startedAt,t.eta_at AS etaAt,t.expires_at AS expiresAt,t.demo,t.travel_mode AS travelMode
-    FROM trips t JOIN trip_recipients r ON r.trip_id = t.id WHERE r.installation_id = ? AND t.expires_at > ? ORDER BY r.created_at DESC LIMIT 30`)
-    .all(installation.id, Date.now()).map((row: any) => ({ ...row, demo: !!row.demo }));
+export async function receivedTrips(installation: Installation) {
+  const rows = await database.collection("trip_recipients").where("installation_id", "==", installation.id)
+    .get();
+  const sortedRows = rows.docs.sort((a, b) => Number(b.data().created_at) - Number(a.data().created_at)).slice(0, 30);
+  const trips = await Promise.all(sortedRows.map(async row => {
+    const trip = await database.collection("trips").doc(row.data().trip_id).get();
+    const value = trip.data();
+    if (!value || value.expires_at <= Date.now()) return null;
+    return { shareCode: value.share_code, status: value.status, startedAt: value.started_at, etaAt: value.eta_at,
+      expiresAt: value.expires_at, demo: !!value.demo, travelMode: value.travel_mode };
+  }));
+  return trips.filter(Boolean);
 }
-export function subscribeWidget(installation: Installation, code: string, body: { activityId?: string; pushToken?: string }) {
+export async function subscribeWidget(installation: Installation, code: string, body: { activityId?: string; pushToken?: string }) {
   if (!/^[a-zA-Z0-9_-]{22,64}$/.test(code)) throw new HttpError(404, "Invalid tracking link.");
-  const trip = database.prepare("SELECT id FROM trips WHERE share_code = ? AND expires_at > ?").get(code, Date.now()) as { id: string } | undefined;
-  if (!trip) throw new HttpError(404, "This trip expired.");
+  const tripSnapshot = await database.collection("trips").where("share_code", "==", code).limit(1).get();
+  const trip = tripSnapshot.empty ? undefined : tripSnapshot.docs[0].data() as { id: string; expires_at: number };
+  if (!trip || trip.expires_at <= Date.now()) throw new HttpError(404, "This trip expired.");
   if (typeof body.activityId !== "string" || body.activityId.length > 150 || !body.activityId.length ||
     typeof body.pushToken !== "string" || !/^[a-f0-9]{32,512}$/i.test(body.pushToken)) throw new HttpError(400, "Invalid Live Activity subscription.");
-  database.prepare("INSERT OR REPLACE INTO widget_subscriptions(trip_id,installation_id,activity_id,push_token,last_sent_at) VALUES(?,?,?,?,0)")
-    .run(trip.id, installation.id, body.activityId, body.pushToken);
+  await database.collection("widget_subscriptions").doc(documentId(trip.id, installation.id, body.activityId))
+    .set({ trip_id: trip.id, installation_id: installation.id, activity_id: body.activityId, push_token: body.pushToken, last_sent_at: 0 });
   return { ok: true, remoteUpdatesAvailable: remoteWidgetsAvailable() };
 }
-export function removeWidgetSubscription(installationId: string, activityId: unknown) {
+export async function removeWidgetSubscription(installationId: string, activityId: unknown) {
   if (typeof activityId !== "string" || activityId.length > 150) throw new HttpError(400, "Invalid activity identifier.");
-  database.prepare("DELETE FROM widget_subscriptions WHERE installation_id = ? AND activity_id = ?").run(installationId, activityId);
+  const rows = await database.collection("widget_subscriptions").where("installation_id", "==", installationId)
+    .get();
+  const batch = database.batch();
+  for (const row of rows.docs) if (row.data().activity_id === activityId) batch.delete(row.ref);
+  if (!rows.empty) await batch.commit();
 }
-export function scheduleTripUpdate(tripId: string, event: "refresh" | "arrived" | "help" | "remote-stop") {
-  const recipients = database.prepare(`SELECT i.id,i.platform,i.push_token FROM trip_recipients r JOIN installations i ON i.id = r.installation_id WHERE r.trip_id = ?`)
-    .all(tripId) as { id: string; platform: string; push_token: string | null }[];
+export async function scheduleTripUpdate(tripId: string, event: "refresh" | "arrived" | "help" | "remote-stop") {
+  const recipientRows = await database.collection("trip_recipients").where("trip_id", "==", tripId).get();
+  const recipients = await Promise.all(recipientRows.docs.map(async row => {
+    const installationId = row.data().installation_id as string;
+    const installation = await database.collection("installations").doc(installationId).get();
+    return installation.data() as { id: string; platform: string; push_token: string | null } | undefined;
+  }));
   for (const r of recipients) {
-    if (!r.push_token || (event === "refresh" && r.platform !== "android")) continue;
+    if (!r || !r.push_token || (event === "refresh" && r.platform !== "android")) continue;
     if (event === "refresh") {
-      const recent = database.prepare("SELECT 1 FROM notification_outbox WHERE trip_id = ? AND installation_id = ? AND event = 'refresh' AND created_at > ?")
-        .get(tripId, r.id, Date.now() - 60000);
-      if (recent) continue;
+      const recent = await database.collection("notification_outbox").where("trip_id", "==", tripId).get();
+      if (recent.docs.some(row => row.data().installation_id === r.id && row.data().event === "refresh" &&
+          row.data().created_at > Date.now() - 60000)) continue;
     }
-    enqueue(tripId, r.id, event);
+    await enqueue(tripId, r.id, event);
   }
-  if (event !== "refresh") database.prepare("UPDATE widget_subscriptions SET last_sent_at = 0 WHERE trip_id = ?").run(tripId);
+  if (event !== "refresh") {
+    const widgets = await database.collection("widget_subscriptions").where("trip_id", "==", tripId).get();
+    const batch = database.batch();
+    for (const widget of widgets.docs) batch.update(widget.ref, { last_sent_at: 0 });
+    if (!widgets.empty) await batch.commit();
+  }
 }
 export const notificationTransport = {
   async expo(token: string, state: WidgetState, event: string) {
@@ -96,7 +124,10 @@ export const notificationTransport = {
     const result = await response.json() as { data?: { status: string; details?: { error?: string } } };
     if (result.data?.status !== "ok") {
       if (result.data?.details?.error === "DeviceNotRegistered") {
-        database.prepare("UPDATE installations SET push_token = NULL WHERE push_token = ?").run(token);
+        const matches = await database.collection("installations").where("push_token", "==", token).get();
+        const batch = database.batch();
+        for (const match of matches.docs) batch.update(match.ref, { push_token: null });
+        if (!matches.empty) await batch.commit();
         return false;
       }
       throw new Error("Notification was not accepted");
@@ -109,33 +140,42 @@ export async function processNotifications() {
   if (processing) return;
   processing = true;
   try {
-    const jobs = database.prepare(`SELECT o.*,i.push_token,i.push_start_token,i.platform FROM notification_outbox o
-      JOIN installations i ON i.id = o.installation_id WHERE o.state = 'pending' AND o.next_attempt_at <= ? LIMIT 20`)
-      .all(Date.now()) as NotificationRow[];
+    const pendingJobs = await database.collection("notification_outbox").where("state", "==", "pending").get();
+    const dueJobs = pendingJobs.docs.filter(doc => Number(doc.data().next_attempt_at) <= Date.now()).slice(0, 20);
+    const jobs = await Promise.all(dueJobs.map(async doc => {
+      const job = doc.data() as NotificationRow;
+      const installation = await database.collection("installations").doc(job.installation_id).get();
+      return { ...job, ref: doc.ref, ...(installation.data() as { push_token: string | null; push_start_token: string | null; platform: string } | undefined) };
+    }));
     for (const job of jobs) {
-      const state = snapshot(job.trip_id);
-      if (!state || state.status === "expired") { database.prepare("UPDATE notification_outbox SET state = 'unavailable' WHERE id = ?").run(job.id); continue; }
+      if (!job.push_token && !job.push_start_token) { await job.ref.update({ state: "unavailable" }); continue; }
+      const state = await snapshot(job.trip_id);
+      if (!state || state.status === "expired") { await job.ref.update({ state: "unavailable" }); continue; }
       try {
         const accepted = job.event === "live-start"
           ? !!job.push_start_token && await pushLiveActivity(job.push_start_token, "start", state)
           : !!job.push_token && await notificationTransport.expo(job.push_token, state, job.event);
-        database.prepare("UPDATE notification_outbox SET state = ? WHERE id = ?").run(accepted ? "accepted" : "unavailable", job.id);
+        await job.ref.update({ state: accepted ? "accepted" : "unavailable" });
       } catch {
-        database.prepare("UPDATE notification_outbox SET attempts = attempts + 1,state = ?,next_attempt_at = ? WHERE id = ?")
-          .run(job.attempts >= 4 ? "failed" : "pending", Date.now() + Math.min(60000, 5000 * 2 ** job.attempts), job.id);
+        await job.ref.update({
+          attempts: job.attempts + 1,
+          state: job.attempts >= 4 ? "failed" : "pending",
+          next_attempt_at: Date.now() + Math.min(60000, 5000 * 2 ** job.attempts),
+        });
       }
     }
     if (remoteWidgetsAvailable()) {
-      const activities = database.prepare("SELECT * FROM widget_subscriptions WHERE last_sent_at < ? LIMIT 30").all(Date.now() - 60000) as
-        { trip_id: string; installation_id: string; activity_id: string; push_token: string }[];
+      const activitiesSnapshot = await database.collection("widget_subscriptions").where("last_sent_at", "<", Date.now() - 60000).limit(30).get();
+      const activities = activitiesSnapshot.docs.map(doc => ({ ...doc.data(), ref: doc.ref })) as
+        ({ trip_id: string; installation_id: string; activity_id: string; push_token: string; ref: FirebaseFirestore.DocumentReference }[]);
       for (const activity of activities) {
-        const state = snapshot(activity.trip_id);
+        const state = await snapshot(activity.trip_id);
         if (!state) continue;
         try {
           await pushLiveActivity(activity.push_token, state.status === "active" ? "update" : "end", state);
-          if (state.status !== "active") database.prepare("DELETE FROM widget_subscriptions WHERE installation_id = ? AND activity_id = ?").run(activity.installation_id, activity.activity_id);
-          else database.prepare("UPDATE widget_subscriptions SET last_sent_at = ? WHERE installation_id = ? AND activity_id = ?").run(Date.now(), activity.installation_id, activity.activity_id);
-        } catch { database.prepare("UPDATE widget_subscriptions SET last_sent_at = ? WHERE installation_id = ? AND activity_id = ?").run(Date.now(), activity.installation_id, activity.activity_id); }
+          if (state.status !== "active") await activity.ref.delete();
+          else await activity.ref.update({ last_sent_at: Date.now() });
+        } catch { await activity.ref.update({ last_sent_at: Date.now() }); }
       }
     }
   } finally { processing = false; }

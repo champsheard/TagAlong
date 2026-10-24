@@ -1,6 +1,6 @@
 import { asPoint, distanceToRoute, distanceToSegment, pointAlong, routeLength } from "../../shared/geo";
 import type { Geometry, LightBreakdown, Point } from "../../shared/types";
-import { cached, cacheValue } from "./db";
+import { cached, cacheValue } from "./firestore";
 import { lightingConfig as config } from "./lightingConfig";
 
 export type OsmElement = {
@@ -28,7 +28,7 @@ export async function loadLightingArea(routes: Geometry[]): Promise<LightingArea
     Math.min(180, Math.ceil((Math.max(...lngs) + lngBuffer) / step) * step),
   ].map(n => n.toFixed(4)).join(",");
   const key = `lighting:${bbox}`;
-  const hit = cached<LightingArea>(key);
+  const hit = await cached<LightingArea>(key);
   if (hit) return hit;
   if ((failedAreas.get(key) ?? 0) > Date.now()) throw new Error("lighting temporarily unavailable");
   const inFlight = pendingAreas.get(key);
@@ -53,7 +53,7 @@ export async function loadLightingArea(routes: Geometry[]): Promise<LightingArea
       if (!response.ok) throw new Error("provider unavailable");
       const data = await response.json() as LightingArea & { remark?: string };
       if (!Array.isArray(data.elements) || data.remark) throw new Error("incomplete lighting data");
-      cacheValue(key, data, config.cacheMs); failedAreas.delete(key); return data;
+      await cacheValue(key, data, config.cacheMs); failedAreas.delete(key); return data;
     } catch {
       // Briefly cache outages to avoid flooding Overpass during concurrent requests.
       failedAreas.set(key, Date.now() + 60000); throw new Error("lighting temporarily unavailable");

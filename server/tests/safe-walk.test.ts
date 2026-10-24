@@ -6,22 +6,25 @@ import type { Geometry, TripCredentials } from "../../shared/types";
 
 // A separate in-memory database: never alter the development walker's trips.
 process.env.DATABASE_PATH = ":memory:";
+process.env.FIRESTORE_COLLECTION_PREFIX = `test_safe_${process.pid}_`;
 let origin: string, server: Server;
-let db: typeof import("../src/db");
+let db: typeof import("../src/firestore");
+let legacyDb: typeof import("../src/db");
 let lighting: typeof import("../src/lighting");
 let driveStops: typeof import("../src/driveStopMonitor");
 const realFetch = globalThis.fetch;
 const geometry: Geometry = { type: "LineString", coordinates: [[0, 0], [0.001, 0]] };
 before(async () => {
   const { app } = await import("../src/app");
-  db = await import("../src/db");
+  db = await import("../src/firestore");
+  legacyDb = await import("../src/db");
   lighting = await import("../src/lighting");
   driveStops = await import("../src/driveStopMonitor");
   server = app.listen(0, "127.0.0.1");
   await new Promise<void>(resolve => server.once("listening", resolve));
   origin = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
 });
-after(() => { globalThis.fetch = realFetch; server.close(); db.database.close(); });
+after(async () => { globalThis.fetch = realFetch; server.close(); await db.clearPrefixedCollections(); legacyDb.database.close(); });
 async function call(path: string, body?: unknown, token?: string) {
   const response = await realFetch(origin + "/api" + path, {
     method: body === undefined ? "GET" : "POST",
@@ -44,7 +47,7 @@ test("health, config, and explicitly simulated demo routes", async () => {
 test("private trip credentials and active location sharing", async () => {
   const t = await trip();
   assert.match(t.shareCode, /^[a-zA-Z0-9_-]{22,}$/);
-  const stored = db.database.prepare("SELECT token_hash FROM trips WHERE id = ?").get(t.tripId) as { token_hash: string };
+  const stored = (await db.database.collection("trips").doc(t.tripId).get()).data() as { token_hash: string };
   assert.notEqual(stored.token_hash, t.writeToken);
   assert.equal((await call(`/trips/${t.tripId}/location`, { lat: 0, lng: 0, accuracy: 5, timestamp: Date.now() })).status, 401);
   assert.equal((await call(`/trips/${t.tripId}/location`, { lat: 0, lng: 0, accuracy: 5, timestamp: Date.now() }, "wrong-token")).status, 404);
@@ -100,10 +103,12 @@ test("remote-drive stop warnings use a cancel window, notify shared contacts, an
 
     const warned = await createDrive();
     const contactId = "00000000-0000-4000-8000-000000000111";
-    db.database.prepare("INSERT INTO installations(id,token_hash,platform,push_token,created_at,seen_at) VALUES(?,?,?,?,?,?)")
-      .run(contactId, "f".repeat(64), "ios", "ExponentPushToken[test-device]", now, now);
-    db.database.prepare("INSERT INTO trip_recipients(trip_id,installation_id,sender_id,created_at) VALUES(?,?,NULL,?)")
-      .run(warned.tripId, contactId, now);
+    await db.database.collection("installations").doc(contactId).set({
+      id: contactId, token_hash: "f".repeat(64), platform: "ios", push_token: "ExponentPushToken[test-device]",
+      push_start_token: null, discoverable: 1, auto_share: 1, created_at: now, seen_at: now,
+    });
+    await db.database.collection("trip_recipients").doc(db.documentId(warned.tripId, contactId))
+      .set({ trip_id: warned.tripId, installation_id: contactId, sender_id: null, created_at: now });
     await updateAt(warned, 0, 0);
     now += 5000; await updateAt(warned, 0, 0);
     now += 60_000; await updateAt(warned, 0, 0);
@@ -115,7 +120,8 @@ test("remote-drive stop warnings use a cancel window, notify shared contacts, an
     tracked = await call(`/track/${warned.shareCode}`);
     assert.equal(tracked.data.status, "active");
     assert.equal(tracked.data.remoteStopAlertAt, now);
-    assert.equal(db.database.prepare("SELECT event FROM notification_outbox WHERE trip_id = ? AND event = 'remote-stop'").get(warned.tripId)?.event, "remote-stop");
+    const remoteStopJobs = await db.database.collection("notification_outbox").where("trip_id", "==", warned.tripId).where("event", "==", "remote-stop").get();
+    assert.equal(remoteStopJobs.docs[0]?.data().event, "remote-stop");
 
     const builtArea = await createDrive();
     buildingAt = { lat: 0.02, lng: 0 };
@@ -146,7 +152,7 @@ test("legacy trip rows migrate to walking without losing existing records", () =
   try {
     legacy.exec("CREATE TABLE trips (id TEXT PRIMARY KEY, status TEXT NOT NULL)");
     legacy.prepare("INSERT INTO trips(id,status) VALUES(?,?)").run("legacy-trip", "active");
-    db.migrateTripTravelMode(legacy);
+    legacyDb.migrateTripTravelMode(legacy);
     assert.deepEqual(legacy.prepare("SELECT id,status,travel_mode FROM trips").get(), {
       id: "legacy-trip", status: "active", travel_mode: "walking",
     });
@@ -176,18 +182,17 @@ test("arrival feedback is anonymous, validates ratings, and expires after 90 day
   });
   assert.equal(result.status, 201);
   assert.deepEqual(result.data, { ok: true });
-  const saved = db.database.prepare("SELECT * FROM arrival_feedback").get() as {
-    id: string; route_rating: number; reports: string; created_at: number; expires_at: number;
-  };
+  const feedbackRows = await db.database.collection("arrival_feedback").limit(1).get();
+  const saved = feedbackRows.docs[0].data() as { id: string; route_rating: number; reports: string; created_at: number; expires_at: number };
   assert.equal(saved.route_rating, 2);
   assert.deepEqual(JSON.parse(saved.reports), [
     { streetOrBlock: "Oak Street", lightingRating: 1, notes: "Several lamps were out." },
   ]);
   assert.deepEqual(Object.keys(saved).sort(), ["created_at", "expires_at", "id", "reports", "route_rating"]);
   assert.ok(Math.abs(saved.expires_at - Date.now() - 90 * 86400000) < 2000);
-  db.database.prepare("UPDATE arrival_feedback SET expires_at = ? WHERE id = ?").run(Date.now() - 1, saved.id);
-  db.purgeExpired();
-  assert.equal(db.database.prepare("SELECT id FROM arrival_feedback WHERE id = ?").get(saved.id), undefined);
+  await db.database.collection("arrival_feedback").doc(saved.id).update({ expires_at: Date.now() - 1 });
+  await db.purgeExpired();
+  assert.equal((await db.database.collection("arrival_feedback").doc(saved.id).get()).exists, false);
 });
 test("help freezes the last-known location and marks the public trip", async () => {
   const t = await trip(), position = { lat: 0, lng: 0.0003, accuracy: 7, timestamp: Date.now() };
@@ -201,11 +206,11 @@ test("help freezes the last-known location and marks the public trip", async () 
 test("six-hour expiry, 404 links, and purge", async () => {
   const t = await trip();
   assert.ok(Math.abs(t.expiresAt - Date.now() - 21600000) < 2000);
-  db.database.prepare("UPDATE trips SET expires_at = ? WHERE id = ?").run(Date.now() - 1, t.tripId);
+  await db.database.collection("trips").doc(t.tripId).update({ expires_at: Date.now() - 1 });
   assert.equal((await call(`/track/${t.shareCode}`)).status, 404);
   assert.equal((await call("/track/not-a-valid-code")).status, 404);
-  db.purgeExpired();
-  assert.equal(db.database.prepare("SELECT id FROM trips WHERE id = ?").get(t.tripId), undefined);
+  await db.purgeExpired();
+  assert.equal((await db.database.collection("trips").doc(t.tripId).get()).exists, false);
 });
 test("invalid coordinates, geometry, ETA, stale fixes, and end status are rejected", async () => {
   assert.equal((await call("/trips", { routeGeometry: { type: "LineString", coordinates: [[0, 100], [0, 0]] }, etaSeconds: 90 })).status, 400);

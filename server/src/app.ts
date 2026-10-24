@@ -2,7 +2,7 @@ import cors from "cors";
 import express from "express";
 import path from "node:path";
 import { existsSync } from "node:fs";
-import { database } from "./db.js";
+import { database } from "./firestore.js";
 import { geocode } from "./geocode";
 import { demoRoutes, planRoutes } from "./routes";
 import { cancelDriveStopAlert, createTrip, endTrip, trackTrip, updateLocation } from "./trips";
@@ -26,8 +26,8 @@ app.use("/api", rateLimit(300, 60000), (_request, response, next) => {
   response.setHeader("Cache-Control", "no-store"); next();
 });
 
-app.get("/api/health", (_request, response) => {
-  database.prepare("SELECT 1").get();
+app.get("/api/health", async (_request, response) => {
+  await database.collection("meta").doc("health").get();
   response.json({
     status: "ok",
     service: "safe-walk-api",
@@ -36,8 +36,8 @@ app.get("/api/health", (_request, response) => {
 });
 
 app.get("/api/config", async (_request, response) => response.json({ routingAvailable: !!(process.env.HeiGET || process.env.ORS_API_KEY || process.env.GRAPHHOPPER_API_KEY), demoAvailable: true, locationIntervalSeconds: 5, ...await contactsConfig() }));
-app.post("/api/feedback", rateLimit(10, 3600000), (request, response) => {
-  response.status(201).json(submitArrivalFeedback(request.body));
+app.post("/api/feedback", rateLimit(10, 3600000), async (request, response) => {
+  response.status(201).json(await submitArrivalFeedback(request.body));
 });
 app.use("/api", contactsRouter);
 app.get("/api/geocode", async (request, response) => {
@@ -53,21 +53,21 @@ app.get("/api/demo", (_request, response) => response.json(demoRoutes()));
 app.post("/api/routes", rateLimit(30, 3600000), async (request, response) => {
   response.json(await planRoutes(request.body?.from, request.body?.to, request.body?.travelMode));
 });
-app.post("/api/trips", rateLimit(20, 3600000), (request, response) => {
-  response.status(201).json(createTrip(request.body ?? {}));
+app.post("/api/trips", rateLimit(20, 3600000), async (request, response) => {
+  response.status(201).json(await createTrip(request.body ?? {}));
 });
 const token = (request: express.Request) => request.headers.authorization?.startsWith("Bearer ") ? request.headers.authorization.slice(7) : undefined;
-app.post("/api/trips/:id/location", (request, response) => {
-  response.json(updateLocation(request.params.id as string, token(request), request.body ?? {}));
+app.post("/api/trips/:id/location", async (request, response) => {
+  response.json(await updateLocation(request.params.id as string, token(request), request.body ?? {}));
 });
-app.post("/api/trips/:id/remote-stop/cancel", (request, response) => {
-  response.json(cancelDriveStopAlert(request.params.id as string, token(request)));
+app.post("/api/trips/:id/remote-stop/cancel", async (request, response) => {
+  response.json(await cancelDriveStopAlert(request.params.id as string, token(request)));
 });
-app.post("/api/trips/:id/end", (request, response) => {
-  response.json(endTrip(request.params.id as string, token(request), request.body?.status));
+app.post("/api/trips/:id/end", async (request, response) => {
+  response.json(await endTrip(request.params.id as string, token(request), request.body?.status));
 });
-app.get("/api/track/:code", (request, response) => {
-  response.json(trackTrip(request.params.code as string));
+app.get("/api/track/:code", async (request, response) => {
+  response.json(await trackTrip(request.params.code as string));
 });
 app.use("/api", (_request, response) => response.status(404).json({ error: "API endpoint not found." }));
 
