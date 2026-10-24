@@ -14,3 +14,9 @@ Vercel cannot resolve Replit's internal package-firewall host if an npm lockfile
 **Why:** Replit-generated npm lockfiles can retain internal tarball URLs that fail with `ENOTFOUND` in Vercel's build environment. `--replace-registry-host=always` alone preserves the `/npm/` segment and can lead to npm 404 responses.
 
 **How to apply:** Before installing, replace `http://package-firewall.replit.internal/npm/` with `https://registry.npmjs.org/`, then run npm with the public registry. Treat npm's unknown `cache-dir` warning as separate from registry failures.
+
+The root package entrypoint belongs to Expo, not the Vercel Express API. The Vercel app service must explicitly use the Express handler entrypoint rather than auto-detecting the root package's `main`.
+
+**Why:** Vercel otherwise tries to load Expo Router as a serverless function and fails because it does not export an Express server.
+
+**How to apply:** Set the Vercel app service entrypoint to the root `server.ts`, which exports the Express app.

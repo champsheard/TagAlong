@@ -4,6 +4,7 @@
     "app": {
       "root": ".",
       "framework": "express",
+      "entrypoint": "server.ts",
       "buildCommand": "pnpm run build:vercel",
       "outputDirectory": "public",
       "functions": {
