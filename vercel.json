@@ -6,11 +6,6 @@
       "framework": "vite",
       "buildCommand": "pnpm run build:vercel",
       "outputDirectory": "public",
-      "functions": {
-        "api/[...path].ts": {
-          "maxDuration": 60
-        }
-      },
       "rewrites": [
         {
           "source": "/",
@@ -25,6 +20,17 @@
           "destination": "/index.html"
         }
       ]
+    },
+    "api": {
+      "root": ".",
+      "framework": "express",
+      "entrypoint": "server.ts",
+      "buildCommand": "pnpm exec tsc --noEmit -p server/tsconfig.json",
+      "functions": {
+        "server.ts": {
+          "maxDuration": 60
+        }
+      }
     },
     "mockup-sandbox": {
       "root": "artifacts/mockup-sandbox",
@@ -47,6 +53,18 @@
     }
   ],
   "rewrites": [
+    {
+      "source": "/api",
+      "destination": {
+        "service": "api"
+      }
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": {
+        "service": "api"
+      }
+    },
     {
       "source": "/(.*)",
       "destination": {

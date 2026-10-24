@@ -15,8 +15,8 @@ Vercel cannot resolve Replit's internal package-firewall host if an npm lockfile
 
 **How to apply:** Before installing, replace `http://package-firewall.replit.internal/npm/` with `https://registry.npmjs.org/`, then run npm with the public registry. Treat npm's unknown `cache-dir` warning as separate from registry failures.
 
-Use a static-output preset for the public app service with the custom Expo build, and expose Express only through a conventional `/api/*` function. Do not switch the whole app service to the Express preset.
+Use a static-output preset for the public app service with the custom Expo build, and expose Express as a separate API service with explicit public `/api` routing. Do not switch the whole app service to the Express preset or rely on an API-directory function inside the static service.
 
-**Why:** The Express preset routed page requests into the API handler. Pointing it at the correct Express entrypoint fixed startup but still returned `Cannot GET` for pages; adding HTML rewrites only changed which missing Express route was requested. The package's main entrypoint belongs to Expo and must remain separate.
+**Why:** The Express preset routed page requests into the API handler. HTML rewrites could not make Express serve the static export. A subsequent API-directory function inside the static service was not publicly available in the reported deployment. Services have separate route ownership, and the first matching top-level service selection is final; no fallback discovers backend routes elsewhere.
 
-**How to apply:** Keep the Vite static-output preset with the custom Expo build (this does not migrate the product to Vite), publish the export directory statically, and reserve the catch-all API function for Express. Keep client-page rewrites explicit so they do not mask API paths. Service-level `framework` does not accept null in Vercel's schema.
+**How to apply:** Keep the Vite static-output preset with the custom Expo build (this does not migrate the product to Vite). Give the API service the Express preset and an explicit server entrypoint, not Expo's package main. Put API-specific top-level rewrites before the frontend catch-all. Preserve the original `/api/...` path that Express expects. Service-level `framework` does not accept null in Vercel's schema.

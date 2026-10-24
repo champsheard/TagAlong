@@ -10,7 +10,12 @@ kept locally as an import backup and is not deployed.
 - The `app` service uses Vercel's Vite static-output preset with the custom Expo
   build command; the product itself remains Expo, not Vite. Do not use the
   Express preset here, because it sends page requests to the API handler.
-- `/api/*` is handled by `api/[...path].ts`.
+- The separate `api` service uses the Express preset and explicitly targets
+  `server.ts`. Top-level `/api` and `/api/*` rewrites select it before the
+  frontend catch-all; Express receives the original `/api/...` request path.
+- `app` and `api` share the repository root but have independent build settings.
+  The mockup sandbox remains internal. Browser API requests use same-origin
+  `/api` URLs, so no private service binding is required.
 - `/contacts` and `/track/:code` load the Expo single-page app.
 - `vercel.json` runs protected expired-data cleanup once daily. Hobby cron timing
   is approximate, so an expired trip link stops working at six hours, while
