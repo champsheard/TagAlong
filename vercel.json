@@ -3,7 +3,7 @@
   "buildCommand": "pnpm run build:vercel",
   "outputDirectory": "public",
   "functions": {
-    "api/[...path].ts": {
+    "server.ts": {
       "maxDuration": 60
     }
   },

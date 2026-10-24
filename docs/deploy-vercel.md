@@ -12,7 +12,9 @@ kept locally as an import backup and is not deployed.
 - `vercel.json` runs protected expired-data cleanup once daily. Hobby cron timing
   is approximate, so an expired trip link stops working at six hours, while
   physical deletion can occur later. API requests also attempt a small,
-  opportunistic cleanup every 15 minutes.
+  opportunistic cleanup every 15 minutes. Cleanup caps each run to avoid
+  exceeding the function time limit; unusually large deletion backlogs may
+  require more than one run.
 
 ## Vercel environment variables
 

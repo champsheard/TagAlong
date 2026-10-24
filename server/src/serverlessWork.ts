@@ -17,7 +17,12 @@ async function opportunisticCleanup() {
   });
   if (!claimed) return;
   try {
-    await purgeExpired(now, { maxDocumentsPerCollection: 100, maxTrips: 5, maxInstallations: 5 });
+    await purgeExpired(now, {
+      maxDocumentsPerCollection: 100,
+      maxTrips: 1,
+      maxInstallations: 1,
+      maxChildDocumentsPerCollection: 100,
+    });
     await reference.update({ next_run_at: Date.now() + CLEANUP_INTERVAL_MS, locked_until: 0 });
   } catch {
     await reference.update({ next_run_at: Date.now() + 5 * 60 * 1000, locked_until: 0 }).catch(() => {});

@@ -202,6 +202,27 @@ test("six-hour expiry, 404 links, and purge", async () => {
   await db.purgeExpired();
   assert.equal((await db.database.collection("trips").doc(t.tripId).get()).exists, false);
 });
+test("bounded cleanup retains an expired trip until its child records are removed", async () => {
+  const t = await trip();
+  const tripRef = db.database.collection("trips").doc(t.tripId);
+  await tripRef.update({ expires_at: Date.now() - 1 });
+  const outbox = db.database.collection("notification_outbox");
+  await Promise.all(["cleanup-a", "cleanup-b"].map(id =>
+    outbox.doc(`${t.tripId}-${id}`).set({ trip_id: t.tripId, created_at: Date.now() }),
+  ));
+  const limits = {
+    maxDocumentsPerCollection: 0,
+    maxTrips: 1,
+    maxInstallations: 0,
+    maxChildDocumentsPerCollection: 1,
+  };
+  await db.purgeExpired(Date.now(), limits);
+  assert.equal((await tripRef.get()).exists, true);
+  assert.equal((await outbox.where("trip_id", "==", t.tripId).get()).size, 1);
+  await db.purgeExpired(Date.now(), limits);
+  assert.equal((await tripRef.get()).exists, false);
+  assert.equal((await outbox.where("trip_id", "==", t.tripId).get()).size, 0);
+});
 test("invalid coordinates, geometry, ETA, stale fixes, and end status are rejected", async () => {
   assert.equal((await call("/trips", { routeGeometry: { type: "LineString", coordinates: [[0, 100], [0, 0]] }, etaSeconds: 90 })).status, 400);
   assert.equal((await call("/trips", { routeGeometry: geometry, etaSeconds: 0 })).status, 400);

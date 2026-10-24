@@ -71,7 +71,7 @@ export async function cacheValue(key: string, value: unknown, ttlMs: number) {
   });
 }
 
-async function deleteExpired(query: Query<DocumentData>, maxDocuments = Number.POSITIVE_INFINITY) {
+async function deleteQuery(query: Query<DocumentData>, maxDocuments = Number.POSITIVE_INFINITY) {
   let deleted = 0;
   while (deleted < maxDocuments) {
     const limit = Math.min(400, maxDocuments - deleted);
@@ -86,58 +86,95 @@ async function deleteExpired(query: Query<DocumentData>, maxDocuments = Number.P
   return deleted;
 }
 
-async function deleteExpiredTrips(now: number, maxTrips = Number.POSITIVE_INFINITY) {
+async function deleteChildren(collectionName: string, field: string, value: string, maxDocuments: number) {
+  const query = database.collection(collectionName).where(field, "==", value);
+  const deleted = await deleteQuery(query, maxDocuments);
+  const remaining = await query.limit(1).get();
+  return { deleted, complete: remaining.empty };
+}
+
+async function deleteExpiredTrips(
+  now: number,
+  maxTrips = Number.POSITIVE_INFINITY,
+  maxChildrenPerCollection = Number.POSITIVE_INFINITY,
+) {
+  let processed = 0;
   let deleted = 0;
-  while (deleted < maxTrips) {
-    const limit = Math.min(100, maxTrips - deleted);
+  while (processed < maxTrips) {
+    const limit = Math.min(100, maxTrips - processed);
     const expired = await database.collection("trips").where("expires_at", "<=", now).limit(limit).get();
     if (expired.empty) return deleted;
+    const parentsToDelete: FirebaseFirestore.DocumentReference[] = [];
+    let blocked = false;
     for (const trip of expired.docs) {
+      processed++;
+      let complete = true;
       for (const collectionName of ["trip_recipients", "widget_subscriptions", "notification_outbox"]) {
-        const children = await database.collection(collectionName).where("trip_id", "==", trip.id).get();
-        for (let i = 0; i < children.docs.length; i += 400) {
-          const batch = database.batch();
-          for (const child of children.docs.slice(i, i + 400)) batch.delete(child.ref);
-          await batch.commit();
-        }
+        const result = await deleteChildren(collectionName, "trip_id", trip.id, maxChildrenPerCollection);
+        deleted += result.deleted;
+        complete &&= result.complete;
       }
+      if (complete) parentsToDelete.push(trip.ref);
+      else blocked = true;
     }
-    const batch = database.batch();
-    for (const trip of expired.docs) batch.delete(trip.ref);
-    await batch.commit();
-    deleted += expired.size;
-    if (expired.size < limit) return deleted;
+    if (parentsToDelete.length) {
+      const batch = database.batch();
+      for (const reference of parentsToDelete) batch.delete(reference);
+      await batch.commit();
+      deleted += parentsToDelete.length;
+    }
+    if (blocked || expired.size < limit) return deleted;
   }
   return deleted;
 }
 
-async function deleteExpiredInstallations(now: number, maxInstallations = Number.POSITIVE_INFINITY) {
+async function clearSenderReferences(installationId: string, maxDocuments: number) {
+  const query = database.collection("trip_recipients").where("sender_id", "==", installationId);
+  const shares = maxDocuments === 0
+    ? undefined
+    : Number.isFinite(maxDocuments) ? await query.limit(maxDocuments).get() : await query.get();
+  if (shares?.docs.length) {
+    for (let i = 0; i < shares.docs.length; i += 400) {
+      const batch = database.batch();
+      for (const share of shares.docs.slice(i, i + 400)) batch.update(share.ref, { sender_id: null });
+      await batch.commit();
+    }
+  }
+  return (await query.limit(1).get()).empty;
+}
+
+async function deleteExpiredInstallations(
+  now: number,
+  maxInstallations = Number.POSITIVE_INFINITY,
+  maxChildrenPerCollection = Number.POSITIVE_INFINITY,
+) {
+  let processed = 0;
   let deleted = 0;
-  while (deleted < maxInstallations) {
-    const limit = Math.min(100, maxInstallations - deleted);
+  while (processed < maxInstallations) {
+    const limit = Math.min(100, maxInstallations - processed);
     const expired = await database.collection("installations").where("seen_at", "<", now - 90 * 86400000).limit(limit).get();
     if (expired.empty) return deleted;
+    const parentsToDelete: FirebaseFirestore.DocumentReference[] = [];
+    let blocked = false;
     for (const installation of expired.docs) {
+      processed++;
+      let complete = true;
       for (const collectionName of ["contact_identifiers", "trip_recipients", "widget_subscriptions", "notification_outbox"]) {
-        const children = await database.collection(collectionName).where("installation_id", "==", installation.id).get();
-        for (let i = 0; i < children.docs.length; i += 400) {
-          const batch = database.batch();
-          for (const child of children.docs.slice(i, i + 400)) batch.delete(child.ref);
-          await batch.commit();
-        }
+        const result = await deleteChildren(collectionName, "installation_id", installation.id, maxChildrenPerCollection);
+        deleted += result.deleted;
+        complete &&= result.complete;
       }
-      const shares = await database.collection("trip_recipients").where("sender_id", "==", installation.id).get();
-      for (let i = 0; i < shares.docs.length; i += 400) {
-        const batch = database.batch();
-        for (const share of shares.docs.slice(i, i + 400)) batch.update(share.ref, { sender_id: null });
-        await batch.commit();
-      }
+      complete = await clearSenderReferences(installation.id, maxChildrenPerCollection) && complete;
+      if (complete) parentsToDelete.push(installation.ref);
+      else blocked = true;
     }
-    const batch = database.batch();
-    for (const installation of expired.docs) batch.delete(installation.ref);
-    await batch.commit();
-    deleted += expired.size;
-    if (expired.size < limit) return deleted;
+    if (parentsToDelete.length) {
+      const batch = database.batch();
+      for (const reference of parentsToDelete) batch.delete(reference);
+      await batch.commit();
+      deleted += parentsToDelete.length;
+    }
+    if (blocked || expired.size < limit) return deleted;
   }
   return deleted;
 }
@@ -146,19 +183,20 @@ export type PurgeLimits = {
   maxDocumentsPerCollection?: number;
   maxTrips?: number;
   maxInstallations?: number;
+  maxChildDocumentsPerCollection?: number;
 };
 
 export async function purgeExpired(now = Date.now(), limits: PurgeLimits = {}) {
   const maxDocuments = limits.maxDocumentsPerCollection ?? Number.POSITIVE_INFINITY;
-  const tasks = [
-    deleteExpiredTrips(now, limits.maxTrips),
-    deleteExpired(database.collection("cache").where("expires_at", "<=", now), maxDocuments),
-    deleteExpired(database.collection("verification_challenges").where("expires_at", "<=", now), maxDocuments),
-    deleteExpiredInstallations(now, limits.maxInstallations),
-    deleteExpired(database.collection("notification_outbox").where("created_at", "<", now - 86400000), maxDocuments),
-    deleteExpired(database.collection("arrival_feedback").where("expires_at", "<=", now), maxDocuments),
-    deleteExpired(database.collection("rate_limits").where("expires_at", "<=", now), maxDocuments),
-  ];
-  const counts = await Promise.all(tasks);
-  return counts.reduce((sum, count) => sum + count, 0);
+  const maxChildren = limits.maxChildDocumentsPerCollection ?? Number.POSITIVE_INFINITY;
+  const tripCount = await deleteExpiredTrips(now, limits.maxTrips, maxChildren);
+  const installationCount = await deleteExpiredInstallations(now, limits.maxInstallations, maxChildren);
+  const counts = await Promise.all([
+    deleteQuery(database.collection("cache").where("expires_at", "<=", now), maxDocuments),
+    deleteQuery(database.collection("verification_challenges").where("expires_at", "<=", now), maxDocuments),
+    deleteQuery(database.collection("notification_outbox").where("created_at", "<", now - 86400000), maxDocuments),
+    deleteQuery(database.collection("arrival_feedback").where("expires_at", "<=", now), maxDocuments),
+    deleteQuery(database.collection("rate_limits").where("expires_at", "<=", now), maxDocuments),
+  ]);
+  return tripCount + installationCount + counts.reduce((sum, count) => sum + count, 0);
 }

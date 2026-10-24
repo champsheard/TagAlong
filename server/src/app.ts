@@ -85,7 +85,12 @@ app.get("/api/maintenance/daily", async (request, response) => {
     response.status(secret ? 401 : 503).json({ error: "Daily cleanup is not authorized." });
     return;
   }
-  const deleted = await purgeExpired(Date.now(), { maxDocumentsPerCollection: 1000, maxTrips: 20, maxInstallations: 20 });
+  const deleted = await purgeExpired(Date.now(), {
+    maxDocumentsPerCollection: 1000,
+    maxTrips: 3,
+    maxInstallations: 3,
+    maxChildDocumentsPerCollection: 500,
+  });
   response.json({ ok: true, deleted });
 });
 app.use("/api", (_request, response) => response.status(404).json({ error: "API endpoint not found." }));

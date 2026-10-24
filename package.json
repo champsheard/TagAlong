@@ -9,7 +9,7 @@
     "dev:server": "node scripts/dev-api.cjs",
     "start:server": "node --env-file-if-exists=.env --import tsx server/src/index.ts",
     "export:web": "expo export --platform web",
-    "build:vercel": "expo export --platform web --output-dir public",
+    "build:vercel": "node scripts/build-vercel.cjs",
     "typecheck": "tsc --noEmit && tsc --noEmit -p server/tsconfig.json",
     "test": "tsx --test server/tests/*.test.ts",
     "notifications:test": "tsx server/scripts/send-test-notifications.ts",
