@@ -1,10 +1,38 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "pnpm run build:vercel",
-  "outputDirectory": "public",
-  "functions": {
-    "server.ts": {
-      "maxDuration": 60
+  "services": {
+    "app": {
+      "root": ".",
+      "framework": "express",
+      "buildCommand": "pnpm run build:vercel",
+      "outputDirectory": "public",
+      "functions": {
+        "server.ts": {
+          "maxDuration": 60
+        }
+      },
+      "rewrites": [
+        {
+          "source": "/contacts",
+          "destination": "/index.html"
+        },
+        {
+          "source": "/track/:code",
+          "destination": "/index.html"
+        }
+      ]
+    },
+    "mockup-sandbox": {
+      "root": "artifacts/mockup-sandbox",
+      "framework": "vite",
+      "buildCommand": "PORT=5173 BASE_PATH=/mockup/ npm run build",
+      "outputDirectory": "dist",
+      "rewrites": [
+        {
+          "source": "/(.*)",
+          "destination": "/index.html"
+        }
+      ]
     }
   },
   "crons": [
@@ -15,12 +43,10 @@
   ],
   "rewrites": [
     {
-      "source": "/contacts",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/track/:code",
-      "destination": "/index.html"
+      "source": "/(.*)",
+      "destination": {
+        "service": "app"
+      }
     }
   ]
 }
